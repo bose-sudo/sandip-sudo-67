@@ -9,31 +9,31 @@ class GravitonReferenceData extends Model
     protected $table = 'graviton_reference_data';
 
     protected $fillable = [
-        'type', 'graviton_id', 'code', 'label', 'position',
-        'is_active', 'is_mandatory', 'parent_graviton_id',
-        'raw_response', 'synced_at',
+        'borrower_id',
+        'loan_template_data',
+        'family_member_template_data',
+        'credit_bureau_template_data',
+        'repayment_every',
+        'loan_term_frequency',
+        'transaction_processing_strategy_id',
+        'legal_form_id',
+        'salutation_id',
+        'document_type_id',
+        'sync_status',
+        'sync_error',
+        'last_synced_at',
     ];
 
     protected $casts = [
-        'is_active'    => 'boolean',
-        'is_mandatory' => 'boolean',
-        'raw_response' => 'array',
-        'synced_at'    => 'datetime',
+        'loan_template_data'           => 'array',
+        'family_member_template_data'  => 'array',
+        'credit_bureau_template_data'  => 'array',
+        'last_synced_at'               => 'datetime',
     ];
 
-    /**
-     * Lookup graviton_id by type + label/code
-     */
-    public static function lookup(string $type, ?string $key): ?int
+    // Relation
+    public function borrower()
     {
-        if (empty($key)) return null;
-
-        return static::query()
-            ->where('type', $type)
-            ->where(function ($q) use ($key) {
-                $q->where('label', $key)->orWhere('code', $key);
-            })
-            ->where('is_active', true)
-            ->value('graviton_id');
+        return $this->belongsTo(BorrowerKyc::class, 'borrower_id');
     }
 }

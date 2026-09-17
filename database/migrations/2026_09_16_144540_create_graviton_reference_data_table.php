@@ -10,20 +10,35 @@ return new class extends Migration
     {
         Schema::create('graviton_reference_data', function (Blueprint $table) {
             $table->id();
-            $table->string('type', 60)->index();
-            $table->unsignedBigInteger('graviton_id');
-            $table->string('code', 150)->nullable();
-            $table->string('label', 255)->nullable();
-            $table->integer('position')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->boolean('is_mandatory')->default(false);
-            $table->unsignedBigInteger('parent_graviton_id')->nullable()->index();
-            $table->jsonb('raw_response')->nullable();
-            $table->timestamp('synced_at')->nullable();
+
+            $table->unsignedBigInteger('borrower_id')->index();
+
+            // JSON responses
+            $table->json('loan_template_data')->nullable();
+            $table->json('family_member_template_data')->nullable();
+            $table->json('credit_bureau_template_data')->nullable();
+
+            // Extracted values
+            $table->string('repayment_every')->nullable();
+            $table->string('loan_term_frequency')->nullable();
+            $table->string('loan_term_frequency_type')->nullable();       // ✅ NEW
+            $table->string('transaction_processing_strategy_id')->nullable();
+            $table->string('loan_purpose_id')->nullable();                // ✅ NEW
+            $table->string('legal_form_id')->nullable();
+            $table->string('salutation_id')->nullable();
+            $table->string('document_type_id')->nullable();
+
+            // Sync status
+            $table->enum('sync_status', ['pending', 'success', 'failed'])->default('pending');
+            $table->text('sync_error')->nullable();
+            $table->timestamp('last_synced_at')->nullable();
+
             $table->timestamps();
 
-            $table->unique(['type', 'graviton_id'], 'uq_ref_type_gid');
-            $table->index(['type', 'code'], 'idx_ref_type_code');
+            $table->foreign('borrower_id')
+                  ->references('id')
+                  ->on('borrower_kycs')
+                  ->onDelete('cascade');
         });
     }
 

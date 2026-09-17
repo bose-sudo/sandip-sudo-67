@@ -9,8 +9,9 @@ return [
 
     'defaults' => [
         // .env theke
-        'office_id'         => env('GRAVITON_OFFICE_ID', 102),
+        'office_id'         => env('GRAVITON_OFFICE_ID', 1),
         'internal_sales_id' => env('GRAVITON_INTERNAL_SALES_ID', 158),
+        'product_id'        => env('GRAVITON_DEFAULT_PRODUCT_ID', 36),
 
         // ═══════════════════════════════════════════════════
         // CONSTANTS (all time same)

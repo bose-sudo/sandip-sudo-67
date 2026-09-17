@@ -1254,7 +1254,7 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
 
         // Download reports (latest completed request for the entity)
         Route::get('/download-excel', [AccountAggregatorEntityController::class, 'download_excel_report'])
-            ->name('admin.initiate-entity-aa');
+            ->name('admin.download-excel');
 
         Route::get('/download-pdf', [AccountAggregatorEntityController::class, 'download_pdf_report']);
             // ->name('download.pdf');

@@ -57,4 +57,22 @@ class BorrowerKyc extends Model
     {
         return $this->belongsTo(LoanBasicDetails::class, 'borrower_id', 'id');
     }
+
+    // app/Models/BorrowerKyc.php
+
+    public function gravitonReferenceData()
+    {
+        return $this->hasOne(GravitonReferenceData::class, 'borrower_id');
+    }
+
+    // app/Models/BorrowerKyc.php
+
+    public function loanScheme()
+    {
+        return $this->hasOne(
+            BorrowerLoanScheme::class,
+            'borrower_id',    // foreign key in borrower_loan_schemes
+            'borrower_id'     // local key in borrower_kycs ✅
+        );
+    }
 }
