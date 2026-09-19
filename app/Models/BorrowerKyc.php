@@ -51,8 +51,22 @@ class BorrowerKyc extends Model
         "policy_end_date",
         "udyam_aadhaar_number",
         "vehicle_reg_no",
+// New columns added in the migration
+        "graviton_client_id",
+        "dedupe_match_percentage",
+        "dedupe_data",
+        "dedupe_checked_at",
+        "dedupe_status",
     ];
 
+    protected $casts = [
+        'dedupe_data'             => 'array',
+        'dedupe_match_percentage' => 'decimal:2',
+        'dedupe_checked_at'       => 'datetime',
+        'is_verified_mobile'      => 'boolean',
+        'is_verified_pan'         => 'boolean',
+        'is_verified_aadhar'      => 'boolean',
+    ];
     public function loanBasicDetails()
     {
         return $this->belongsTo(LoanBasicDetails::class, 'borrower_id', 'id');

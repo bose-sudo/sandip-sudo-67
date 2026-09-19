@@ -44,6 +44,11 @@ class Kernel extends ConsoleKernel
         ->hourly()
         ->withoutOverlapping()
         ->onOneServer();
+
+        // Graviton dedupe check — 3 AM
+        $schedule->command('graviton:dedupe-check')
+            ->dailyAt('03:00')
+            ->withoutOverlapping();
     }
     // protected function schedule(Schedule $schedule): void
     // {
