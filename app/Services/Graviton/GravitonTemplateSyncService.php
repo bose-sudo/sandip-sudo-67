@@ -9,9 +9,6 @@ class GravitonTemplateSyncService
 {
     public function __construct(private GravitonAuthService $auth) {}
 
-    /**
-     * Sync all missing-field reference data
-     */
     public function syncAll(): array
     {
         return [
@@ -20,11 +17,6 @@ class GravitonTemplateSyncService
         ];
     }
 
-    /**
-     * Family Member Template — sudhu missing field er jonno
-     * Missing: salutation, gender, address_type, address_subtype,
-     *          verification_method, customer_identifier
-     */
     public function syncFamilyMemberFields(): int
     {
         $response = $this->auth->client()->get('/clients/0/familymembers/template');
@@ -37,14 +29,30 @@ class GravitonTemplateSyncService
         $data  = $response->json();
         $count = 0;
 
-        // Sudhu missing field er list
+        // ✅ Extended map — 21 lists
         $map = [
-            'salutation'          => 'salutation',
-            'gender'              => 'genderIdOptions',
-            'address_type'        => 'addressTypeOptions',
-            'address_subtype'     => 'addressSubTypeOptions',
-            'verification_method' => 'verificationMethodOptions',
-            'customer_identifier' => 'customerIdentifierOptions',
+            'salutation'              => 'salutation',
+            'gender'                  => 'genderIdOptions',
+            'relationship'            => 'relationShipIdOptions',
+            'marital_status'          => 'maritalStatusIdOptions',
+            'profession'              => 'professionIdOptions',
+            'qualification'           => 'qualificationIdOptions',
+            'cast'                    => 'cast',
+            'religion'                => 'religion',
+            'customer_identifier'     => 'customerIdentifierOptions',
+            'client_legal_form'       => 'clientLegalFormOptions',
+            'client_classification'   => 'clientClassificationOptions',
+            'medical_condition'       => 'medicalConditionOptions',
+            'impairment_type'         => 'typeofImpairment',
+            'accommodation_required'  => 'accommodationRequired',
+            'lead_rating'             => 'leadrating',
+            'family_member_type'      => 'familyMemberTypeOptions',
+            'address_type'            => 'addressTypeOptions',
+            'address_subtype'         => 'addressSubTypeOptions',
+            'relation_with_applicant' => 'relationWithApplicant',
+            'country'                 => 'countryOptions',
+            'state'                   => 'stateOptions',
+            'verification_method'     => 'verificationMethodOptions',
         ];
 
         foreach ($map as $type => $key) {
@@ -57,14 +65,9 @@ class GravitonTemplateSyncService
         return $count;
     }
 
-    /**
-     * Loan Template — sudhu missing field er jonno
-     * Missing: interest_type, amortization_type, interest_calc_period_type,
-     *          repayment_frequency_type, term_frequency_type,
-     *          repayment_strategy, loan_purpose
-     */
     public function syncLoanFields(?int $productId = null): int
     {
+        // ✅ No change
         $params = [
             'templateType' => 'individual',
             'activeOnly'   => 'true',
@@ -84,7 +87,6 @@ class GravitonTemplateSyncService
         $data  = $response->json();
         $count = 0;
 
-        // Sudhu missing field er list
         $map = [
             'interest_type'             => 'interestTypeOptions',
             'amortization_type'         => 'amortizationTypeOptions',
@@ -105,16 +107,14 @@ class GravitonTemplateSyncService
         return $count;
     }
 
-    /**
-     * Upsert
-     */
     private function upsert(string $type, array $item): void
     {
+        // ✅ String cast + Enum support
         GravitonReferenceData::updateOrCreate(
-            ['type' => $type, 'graviton_id' => $item['id']],
+            ['type' => $type, 'graviton_id' => (string) $item['id']],
             [
-                'code'         => $item['code'] ?? null,
-                'label'        => $item['name'] ?? $item['value'] ?? null,
+                'code'         => $item['code']  ?? null,
+                'label'        => $item['name']  ?? $item['value'] ?? null,
                 'position'     => $item['position'] ?? null,
                 'is_active'    => $item['active'] ?? true,
                 'is_mandatory' => $item['mandatory'] ?? false,

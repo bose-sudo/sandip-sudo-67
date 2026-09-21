@@ -49,6 +49,15 @@ class Kernel extends ConsoleKernel
         $schedule->command('graviton:dedupe-check')
             ->dailyAt('03:00')
             ->withoutOverlapping();
+
+        // Graviton push family members — 4 AM
+        $schedule->command('graviton:push-loan-applications')
+            ->dailyAt('04:00')
+            ->withoutOverlapping();
+
+        $schedule->command('graviton:push-family-members')
+            ->dailyAt('05:00')
+            ->withoutOverlapping();
     }
     // protected function schedule(Schedule $schedule): void
     // {

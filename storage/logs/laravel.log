@@ -4911,3 +4911,135 @@ Did you mean one of these?
 #33 C:\\xampp\\htdocs\\FinayoApp\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
 #34 {main}
 "} 
+[2026-09-21 12:30:15] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php foreach([...', false)
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('foreach(['coapp...', true)
+#4 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('foreach(['coapp...', true)
+#5 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('foreach(['coapp...')
+#6 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(662): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Command\\Command.php(326): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(1096): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-21 12:30:24] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php foreach([...', false)
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('foreach(['coapp...', true)
+#4 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('foreach(['coapp...', true)
+#5 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('foreach(['coapp...')
+#6 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(662): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Command\\Command.php(326): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(1096): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-21 16:31:18] local.ERROR: Command "work" is not defined.
+
+Did you mean one of these?
+    queue:work
+    schedule:work {"exception":"[object] (Symfony\\Component\\Console\\Exception\\CommandNotFoundException(code: 0): Command \"work\" is not defined.
+
+Did you mean one of these?
+    queue:work
+    schedule:work at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php:737)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(266): Symfony\\Component\\Console\\Application->find('work')
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#4 {main}
+"} 
+[2026-09-21 16:31:37] local.INFO: Graviton sync OK for borrower 530  
+[2026-09-21 16:31:52] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php echo 'Tot...', false)
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('echo 'Total row...', true)
+#4 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('echo 'Total row...', true)
+#5 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('echo 'Total row...')
+#6 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(662): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Command\\Command.php(326): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(1096): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-21 16:32:29] local.ERROR: PHP Parse error: Syntax error, unexpected '^' on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected '^' on line 1 at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php echo 'Tot...', false)
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('echo 'Total row...', true)
+#4 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('echo 'Total row...', true)
+#5 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('echo 'Total row...')
+#6 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(662): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Command\\Command.php(326): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(1096): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 
+[2026-09-21 16:35:37] local.ERROR: PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_NS_SEPARATOR on line 1 at C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Exception\\ParseErrorException.php:44)
+[stacktrace]
+#0 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(311): Psy\\Exception\\ParseErrorException::fromParseError(Object(PhpParser\\Error))
+#1 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\CodeCleaner.php(240): Psy\\CodeCleaner->parse('<?php \\\\$r = App...', false)
+#2 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(848): Psy\\CodeCleaner->clean(Array, false)
+#3 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(877): Psy\\Shell->addCode('\\\\$r = App\\\\Model...', true)
+#4 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\psy\\psysh\\src\\Shell.php(1342): Psy\\Shell->setCode('\\\\$r = App\\\\Model...', true)
+#5 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\tinker\\src\\Console\\TinkerCommand.php(76): Psy\\Shell->execute('\\\\$r = App\\\\Model...')
+#6 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(36): Laravel\\Tinker\\Console\\TinkerCommand->handle()
+#7 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Util.php(41): Illuminate\\Container\\BoundMethod::Illuminate\\Container\\{closure}()
+#8 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(93): Illuminate\\Container\\Util::unwrapIfClosure(Object(Closure))
+#9 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\BoundMethod.php(35): Illuminate\\Container\\BoundMethod::callBoundMethod(Object(Illuminate\\Foundation\\Application), Array, Object(Closure))
+#10 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Container\\Container.php(662): Illuminate\\Container\\BoundMethod::call(Object(Illuminate\\Foundation\\Application), Array, Array, NULL)
+#11 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(211): Illuminate\\Container\\Container->call(Array)
+#12 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Command\\Command.php(326): Illuminate\\Console\\Command->execute(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#13 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Console\\Command.php(180): Symfony\\Component\\Console\\Command\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Illuminate\\Console\\OutputStyle))
+#14 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(1096): Illuminate\\Console\\Command->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#15 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(324): Symfony\\Component\\Console\\Application->doRunCommand(Object(Laravel\\Tinker\\Console\\TinkerCommand), Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#16 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\symfony\\console\\Application.php(175): Symfony\\Component\\Console\\Application->doRun(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#17 C:\\xampp\\htdocs\\FinayoApp-uat\\vendor\\laravel\\framework\\src\\Illuminate\\Foundation\\Console\\Kernel.php(201): Symfony\\Component\\Console\\Application->run(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
+#19 {main}
+"} 

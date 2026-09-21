@@ -21,6 +21,8 @@ class GravitonLoanApplicationService
     {
         $log = GravitonApplicationLog::create([
             'borrower_id'  => $borrower->id,
+            'step'         => 'loan_application',
+            'entity_type'  => 'client',
             'endpoint'     => '/loans/newApplicationForm',
             'status'       => 'pending',
             'requested_at' => now(),
@@ -79,6 +81,7 @@ class GravitonLoanApplicationService
             }
 
             $borrower->graviton_client_id = $data['clientId'] ?? null;
+            $borrower->graviton_loan_id   = $data['loanId']   ?? null;
             $borrower->save();
 
             $log->update([
