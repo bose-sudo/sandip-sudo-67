@@ -38,9 +38,91 @@ class ReportsController extends Controller
     // =========================================================================
     // Shared: resolve the base loan query scope for the current user
     // =========================================================================
+    // private function resolveBaseQuery(int $authId): array
+    // {
+    //     $base = LoanBasicDetails::query();
+
+    //     // ── 1. LSP ────────────────────────────────────────────────────────────
+    //     $lsp = LoanServiceProvider::where('lsp_auth_id', $authId)->first();
+    //     if ($lsp) {
+    //         $execIds = LspExecutiveDetails::where('lsp_id', $lsp->id)->pluck('id');
+    //         if ($execIds->isEmpty()) {
+    //             return [null, false, true];
+    //         }
+    //         $base->whereIn('executive_id', $execIds);
+    //         return [$base, false, false];
+    //     }
+
+    //     // ── 2. Dealer auth ────────────────────────────────────────────────────
+    //     $dealerAuth = Dealer::where('dealer_auth_id', $authId)->first();
+    //     if ($dealerAuth) {
+    //         $base->where('dealer_id', $dealerAuth->dealer_unq);
+    //         return [$base, false, false];
+    //     }
+
+    //     $user = auth()->user();
+
+    //     // ── 3. OEM ────────────────────────────────────────────────────────────
+    //     $manufacturer = Manufacturers::where('oem_auth_id', $authId)->first();
+    //     if ($manufacturer) {
+    //         $dealerUnqs = ProductModel::whereRaw(
+    //             'LOWER(manufacture_name) LIKE ?',
+    //             ['%' . strtolower($manufacturer->manufacturer) . '%']
+    //         )
+    //             ->distinct()
+    //             ->pluck('dealer_id')
+    //             ->pipe(fn($ids) => Dealer::whereIn('id', $ids)->pluck('dealer_unq'));
+
+    //         if ($dealerUnqs->isEmpty()) {
+    //             return [null, false, true];
+    //         }
+    //         $base->whereIn('dealer_id', $dealerUnqs);
+    //         return [$base, false, false];
+    //     }
+
+    //     // ── 4. user_type === 36 ───────────────────────────────────────────────
+    //     if ($user->user_type === 36) {
+    //         $identifier = BorrowerIdentifier::whereRaw(
+    //             'users @> ?::jsonb',
+    //             [json_encode([$authId])]
+    //         )->first();
+
+    //         if ($identifier) {
+    //             $borrowerIds = BorrowerIdentifierMapping::where('identifier_id', $identifier->id)
+    //                 ->where('row_status', 'A')
+    //                 ->pluck('borrower_id')
+    //                 ->toArray();
+    //             if (!empty($borrowerIds)) {
+    //                 $base->whereIn('id', $borrowerIds);
+    //             }
+    //         }
+    //         return [$base, true, false];
+    //     }
+
+    //     // ── 5 & 6. Admin — full access or hierarchy ───────────────────────────
+    //     if ($user->is_all_borrower_accessible) {
+    //         return [$base, true, false];
+    //     }
+
+    //     $visibleDealerUnqs = $this->visibilityService->resolveVisibleDealerUnqs($authId);
+    //     if ($visibleDealerUnqs->isEmpty()) {
+    //         return [null, true, true];
+    //     }
+
+    //     $base->whereIn('dealer_id', $visibleDealerUnqs);
+    //     return [$base, true, false];
+    // }
+
     private function resolveBaseQuery(int $authId): array
     {
         $base = LoanBasicDetails::query();
+
+        // ── 0. User exists check ──────────────────────────────────────────────
+        $user = \App\Models\User::with('user_detail')->find($authId);
+        if (!$user) {
+            \Log::warning('resolveBaseQuery: user not found', ['authId' => $authId]);
+            return [null, false, true];
+        }
 
         // ── 1. LSP ────────────────────────────────────────────────────────────
         $lsp = LoanServiceProvider::where('lsp_auth_id', $authId)->first();
@@ -60,18 +142,14 @@ class ReportsController extends Controller
             return [$base, false, false];
         }
 
-        $user = auth()->user();
-
         // ── 3. OEM ────────────────────────────────────────────────────────────
         $manufacturer = Manufacturers::where('oem_auth_id', $authId)->first();
         if ($manufacturer) {
             $dealerUnqs = ProductModel::whereRaw(
                 'LOWER(manufacture_name) LIKE ?',
                 ['%' . strtolower($manufacturer->manufacturer) . '%']
-            )
-                ->distinct()
-                ->pluck('dealer_id')
-                ->pipe(fn($ids) => Dealer::whereIn('id', $ids)->pluck('dealer_unq'));
+            )->distinct()->pluck('dealer_id')
+            ->pipe(fn($ids) => Dealer::whereIn('id', $ids)->pluck('dealer_unq'));
 
             if ($dealerUnqs->isEmpty()) {
                 return [null, false, true];
@@ -81,7 +159,9 @@ class ReportsController extends Controller
         }
 
         // ── 4. user_type === 36 ───────────────────────────────────────────────
-        if ($user->user_type === 36) {
+        // ⚠️ FIX: user_detail relation theke nao (jodi sekhane thake)
+        $userType = $user->user_detail->user_type ?? $user->user_type ?? null;
+        if ((int) $userType === 36) {
             $identifier = BorrowerIdentifier::whereRaw(
                 'users @> ?::jsonb',
                 [json_encode([$authId])]
@@ -99,11 +179,17 @@ class ReportsController extends Controller
             return [$base, true, false];
         }
 
-        // ── 5 & 6. Admin — full access or hierarchy ───────────────────────────
-        if ($user->is_all_borrower_accessible) {
+        // ── 5. Admin full access ──────────────────────────────────────────────
+        // ⚠️ FIX: user_detail theke nao
+        $isAllAcc = $user->user_detail->is_all_borrower_accessible
+                ?? $user->is_all_borrower_accessible
+                ?? false;
+
+        if ($isAllAcc) {
             return [$base, true, false];
         }
 
+        // ── 6. Admin hierarchy ────────────────────────────────────────────────
         $visibleDealerUnqs = $this->visibilityService->resolveVisibleDealerUnqs($authId);
         if ($visibleDealerUnqs->isEmpty()) {
             return [null, true, true];

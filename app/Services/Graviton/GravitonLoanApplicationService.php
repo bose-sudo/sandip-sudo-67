@@ -317,6 +317,11 @@ class GravitonLoanApplicationService
                     'principal'                => $principal,
                 ]],
                 'checklistTemplate' => [],
+                // ✅ NEW — 4 default fields
+                'brokenPeriodInterestComputationType'          => 0,
+                'allowPartialPeriodInterestCalcualtion'        => false,
+                'principalThresholdForLastInstalment'          => 0,
+                'principalThresholdForLastInstallmentofLoan'   => 0,
             ],
 
             'kycData' => $this->buildKycData($borrower),

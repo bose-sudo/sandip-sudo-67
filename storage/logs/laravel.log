@@ -5043,3 +5043,4 @@ Did you mean one of these?
 #18 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
 #19 {main}
 "} 
+[2026-09-22 13:07:35] local.INFO: Loan application created {"borrower_id":530,"client_id":123,"loan_id":111} 
