@@ -186,6 +186,179 @@ class AdminDashboardController extends Controller
     // getDashboardDetails
     // =========================================================================
 
+    // public function getDashboardDetails(Request $request)
+    // {
+    //     try {
+    //         date_default_timezone_set('Asia/Kolkata');
+
+    //         $year  = $request->filled('year')  ? (int) $request->year  : (int) date('Y');
+    //         $month = $request->filled('month') ? $request->month        : date('F');
+
+    //         $request->validate([
+    //             'month' => 'nullable|date_format:F',
+    //             'year'  => 'nullable|integer',
+    //         ]);
+
+    //         $emptyResponse = [
+    //             'total_application'          => 0,
+    //             'total_loan_amount'          => 0,
+    //             'step1_count'                => 0,
+    //             'step2_count'                => 0,
+    //             'step3_count'                => 0,
+    //             'step4_count'                => 0,
+    //             'total_disbursed_application' => 0,
+    //             'total_disbursed_amount' => 0,
+    //         ];
+
+    //         $authId = auth()->id();
+    //         [$baseQuery,, $empty] = $this->resolveBaseQuery($authId);
+
+    //         if ($empty) {
+    //             return response()->json($emptyResponse, 200);
+    //         }
+
+    //         $monthNumber = Carbon::parse("{$year}-{$month}-01")->month;
+
+    //         // Clone the scoped query for the month
+    //         $loanDetails = (clone $baseQuery)
+    //             ->whereYear('created_at', $year)
+    //             ->whereMonth('created_at', $monthNumber)
+    //             ->select(['id', 'loan_application_steps', 'status', 'loan_amount', 'created_at'])
+    //             ->get();
+
+    //         // Step and disbursal counts
+    //         $step1 = $step2 = $step3 = $step4 = $totalApp = $totalDisbursed = 0;
+
+    //         foreach ($loanDetails as $loan) {
+    //             if ($loan->loan_application_steps) {
+    //                 $steps = json_decode($loan->loan_application_steps, true);
+    //                 if (is_array($steps) && !empty($steps)) {
+    //                     $lastStep = (int) (end($steps)['step'] ?? 0);
+    //                     if ($lastStep >= 1  && $lastStep < 8) {
+    //                         $step1++;
+    //                     } elseif ($lastStep >= 8  && $lastStep < 26) {
+    //                         $step2++;
+    //                     } elseif ($lastStep >= 26 && $lastStep < 27) {
+    //                         $step3++;
+    //                     } elseif ($lastStep >= 27) {
+    //                         $step4++;
+    //                     }
+    //                     $totalApp++;
+    //                 }
+    //             }
+    //             if ($loan->status === 'DISBURSED') {
+    //                 $totalDisbursed++;
+    //             }
+    //         }
+
+    //         $totalLoanAmount = (clone $baseQuery)
+    //             ->whereYear('created_at', $year)
+    //             ->whereMonth('created_at', $monthNumber)
+    //             ->sum('loan_amount');
+
+    //         // Daily aggregates — done in DB, not PHP
+    //         $dailyData = (clone $baseQuery)
+    //             ->select(
+    //                 DB::raw('EXTRACT(DAY FROM created_at)::int AS day'),
+    //                 DB::raw('COUNT(*) AS total'),
+    //                 DB::raw('SUM(loan_amount) AS loan_amount')
+    //             )
+    //             ->whereYear('created_at', $year)
+    //             ->whereMonth('created_at', $monthNumber)
+    //             ->groupBy(DB::raw('EXTRACT(DAY FROM created_at)'))
+    //             ->orderBy(DB::raw('EXTRACT(DAY FROM created_at)'))
+    //             ->get()
+    //             ->toArray();
+
+    //         $formattedDailyData = $this->formatDailyData($dailyData, $monthNumber, $year);
+
+    //         $visibleLoanIds = (clone $baseQuery)->pluck('id')->toArray();
+
+    //         // Disbursed this month — based on disbursement_date, joined via borrower_id
+    //         $disbursedData = DisbursementDetails::whereYear('disbursement_date', $year)
+    //             ->whereMonth('disbursement_date', $monthNumber)
+    //             ->whereIn('borrower_id', $visibleLoanIds)
+    //             ->selectRaw('COUNT(DISTINCT borrower_id) AS disbursed_count, SUM(disbursement_amount) AS disbursed_amount')
+    //             ->first();
+    //         $totalDisbursed       = (int) ($disbursedData->disbursed_count ?? 0);
+    //         $totalDisbursedAmount = (float) ($disbursedData->disbursed_amount ?? 0);
+    //         $disbursedLoanIds     = DisbursementDetails::whereYear('disbursement_date', $year)
+    //             ->whereMonth('disbursement_date', $monthNumber)
+    //             ->whereIn('borrower_id', $visibleLoanIds)
+    //             ->distinct('borrower_id')
+    //             ->pluck('borrower_id')
+    //             ->toArray();
+    //         $disbursedLoanIdSet = array_flip($disbursedLoanIds);
+
+    //         // For day-wise bucketing — map borrower_id => disbursement_date
+    //         $disbursedDayMap = DisbursementDetails::whereYear('disbursement_date', $year)
+    //             ->whereMonth('disbursement_date', $monthNumber)
+    //             ->whereIn('borrower_id', $visibleLoanIds)
+    //             ->pluck('disbursement_date', 'borrower_id'); // [loan_basic_details.id => date]
+
+    //         // Step counts per day
+    //         $daysInMonth = Carbon::createFromDate($year, $monthNumber)->daysInMonth;
+    //         $dailyStepCounts = [
+    //             'step1'     => array_fill(0, $daysInMonth, 0),
+    //             'step2'     => array_fill(0, $daysInMonth, 0),
+    //             'step3'     => array_fill(0, $daysInMonth, 0),
+    //             'step4'     => array_fill(0, $daysInMonth, 0),
+    //             'disbursed' => array_fill(0, $daysInMonth, 0),
+    //         ];
+
+    //         foreach ($loanDetails as $loan) {
+    //             $day = Carbon::parse($loan->created_at)->day - 1;
+    //             if ($loan->loan_application_steps) {
+    //                 $steps = json_decode($loan->loan_application_steps, true);
+    //                 if (is_array($steps) && !empty($steps)) {
+    //                     $lastStep = (int) (end($steps)['step'] ?? 0);
+    //                     if ($lastStep >= 1  && $lastStep < 8) {
+    //                         $dailyStepCounts['step1'][$day]++;
+    //                     } elseif ($lastStep >= 8  && $lastStep < 26) {
+    //                         $dailyStepCounts['step2'][$day]++;
+    //                     } elseif ($lastStep >= 26 && $lastStep < 27) {
+    //                         $dailyStepCounts['step3'][$day]++;
+    //                     } elseif ($lastStep >= 27) {
+    //                         $dailyStepCounts['step4'][$day]++;
+    //                     }
+    //                 }
+    //             }
+    //             // if ($loan->status === 'DISBURSED') {
+    //             //     $dailyStepCounts['disbursed'][$day]++;
+    //             // }
+    //             if (isset($disbursedDayMap[$loan->id])) {
+    //                 $disbursedDay = Carbon::parse($disbursedDayMap[$loan->id])->day - 1;
+    //                 $dailyStepCounts['disbursed'][$disbursedDay]++;
+    //             }
+    //         }
+
+
+
+    //         return response()->json([
+    //             'total_application'           => $totalApp,
+    //             'total_loan_amount'           => $totalLoanAmount,
+    //             'step1_count'                 => $step1,
+    //             'step2_count'                 => $step2,
+    //             'step3_count'                 => $step3,
+    //             // 'step4_count'                 => ($step4 - $totalDisbursed),
+    //             'step4_count'                 => $step4,
+    //             'total_disbursed_application' => $totalDisbursed,
+    //             'total_disbursed_amount'      => $totalDisbursedAmount,
+    //             'daywise_totalApplication'    => $formattedDailyData['total'],
+    //             'daywise_step1Application'    => $dailyStepCounts['step1'],
+    //             'daywise_step2Application'    => $dailyStepCounts['step2'],
+    //             'daywise_step3Application'    => $dailyStepCounts['step3'],
+    //             'daywise_step4Application'    => $dailyStepCounts['step4'],
+    //             'daywise_loanAmount'          => $formattedDailyData['loan_amount'],
+    //         ], 200);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'error'   => 'An error occurred while fetching the dashboard details.',
+    //             'message' => $e->getMessage(),
+    //         ], 422);
+    //     }
+    // }
+
     public function getDashboardDetails(Request $request)
     {
         try {
@@ -208,6 +381,7 @@ class AdminDashboardController extends Controller
                 'step4_count'                => 0,
                 'total_disbursed_application' => 0,
                 'total_disbursed_amount' => 0,
+                'total_sanctioned_amount' => 0,
             ];
 
             $authId = auth()->id();
@@ -296,6 +470,30 @@ class AdminDashboardController extends Controller
                 ->whereIn('borrower_id', $visibleLoanIds)
                 ->pluck('disbursement_date', 'borrower_id'); // [loan_basic_details.id => date]
 
+
+            // ⬇️ ADD #2 START
+
+            $disbursedBorrowerIds = DisbursementDetails::whereYear('disbursement_date', $year)
+                ->whereMonth('disbursement_date', $monthNumber)
+                ->whereIn('borrower_id', $visibleLoanIds)
+                ->pluck('borrower_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            $totalDisbursedLoanAmountOnly = (float) LoanBasicDetails::whereIn('id', $disbursedBorrowerIds)
+                ->where('status', 'DISBURSED')
+                ->sum('loan_amount');
+
+            $totalIotAmount = (float) DB::table('borrower_loan_schemes')
+                ->whereIn('borrower_id', $disbursedBorrowerIds)
+                ->where('is_current', true)
+                ->sum('iot');
+
+            $totalSanctionedAmount = $totalDisbursedLoanAmountOnly + $totalIotAmount;
+
+            // ⬆️ ADD #2 END
+
             // Step counts per day
             $daysInMonth = Carbon::createFromDate($year, $monthNumber)->daysInMonth;
             $dailyStepCounts = [
@@ -350,6 +548,7 @@ class AdminDashboardController extends Controller
                 'daywise_step3Application'    => $dailyStepCounts['step3'],
                 'daywise_step4Application'    => $dailyStepCounts['step4'],
                 'daywise_loanAmount'          => $formattedDailyData['loan_amount'],
+                'total_sanctioned_amount'     => $totalSanctionedAmount,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -358,7 +557,6 @@ class AdminDashboardController extends Controller
             ], 422);
         }
     }
-
     /**
      * Format daily data to ensure days with no data default to 0.
      *
@@ -410,6 +608,7 @@ class AdminDashboardController extends Controller
                 'approved_application' => 0,
                 'disbursed_application' => 0,
                 'disbursed_amount' => 0,
+                'total_sanctioned_amount' => 0,
             ];
 
             $authId = auth()->id();
@@ -465,6 +664,28 @@ class AdminDashboardController extends Controller
             $totalDisbursed       = (int) ($disbursedData->disbursed_count ?? 0);
             $totalDisbursedAmount = (float) ($disbursedData->disbursed_amount ?? 0);
 
+            // ⬇️ ADD #2 START
+
+            $disbursedBorrowerIds = DisbursementDetails::whereYear('disbursement_date', $year)
+                ->whereIn('borrower_id', $visibleLoanIds)
+                ->pluck('borrower_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            $totalDisbursedLoanAmountOnly = (float) LoanBasicDetails::whereIn('id', $disbursedBorrowerIds)
+                ->where('status', 'DISBURSED')
+                ->sum('loan_amount');
+
+            $totalIotAmount = (float) DB::table('borrower_loan_schemes')
+                ->whereIn('borrower_id', $disbursedBorrowerIds)
+                ->where('is_current', true)
+                ->sum('iot');
+
+            $totalSanctionedAmount = $totalDisbursedLoanAmountOnly + $totalIotAmount;
+
+            // ⬆️ ADD #2 END
+
             $totalDisbursedAgg = $totalDisbursed;
             $loanPipeline       = $totalApp - $totalRejected - $totalDisbursedAgg;
 
@@ -480,6 +701,7 @@ class AdminDashboardController extends Controller
                 'approved_application'  => $totalDisbursed,
                 'disbursed_application' => $totalDisbursed,
                 'disbursed_amount' => $totalDisbursedAmount,
+                'total_sanctioned_amount' => $totalSanctionedAmount,
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
@@ -1660,6 +1882,39 @@ class AdminDashboardController extends Controller
         }
     }
 
+    // public function get_borrower_field_inspection_details($borrower_id = null)
+    // {
+    //     try {
+    //         if (!isset($borrower_id) || empty($borrower_id)) {
+    //             return [];
+    //         }
+
+    //         $fi_details = FieldInspectionDetails::where('borrower_id', $borrower_id)->first();
+    //         if (!$fi_details) {
+    //             return [];
+    //         }
+
+    //         return [
+    //             'name' => $fi_details->name ?? '',
+    //             'mobile' => $fi_details->mobile ?? '',
+    //             'field_verification_status' => $fi_details->is_inspection_verified ?? '',
+    //             'verification_time' => isset($fi_details->verification_time) ? date('d-m-Y H:i:s', strtotime($fi_details->verification_time)) : '',
+    //             'field_inspection_image' => $fi_details->fi_image ?? '',
+    //             'latitude' => $fi_details->latitude ?? '',
+    //             'longitude' => $fi_details->longitude ?? '',
+    //             'distance' => $fi_details->distance ?? '',
+    //             'address' => $fi_details->address ?? '',
+    //             'meter_image' => $fi_details->meter_image ?? '',
+    //             'meter_verification_status' => $fi_details->meter_verification_status ?? '',
+    //             'meter_remarks' => $fi_details->meter_remarks ?? '',
+    //             'meter_uploaded_at' => !empty($fi_details->meter_uploaded_at) ? date('d-m-Y H:i:s', strtotime($fi_details->meter_uploaded_at)) : '',
+    //             'meter_verified_at' => !empty($fi_details->meter_verified_at) ? date('d-m-Y H:i:s', strtotime($fi_details->meter_verified_at)) : '',
+    //         ];
+    //     } catch (Exception $e) {
+    //         return [];
+    //     }
+    // }
+
     public function get_borrower_field_inspection_details($borrower_id = null)
     {
         try {
@@ -1667,26 +1922,71 @@ class AdminDashboardController extends Controller
                 return [];
             }
 
-            $fi_details = FieldInspectionDetails::where('borrower_id', $borrower_id)->first();
+            $fi_details = FieldInspectionDetails::where('borrower_id', $borrower_id)->latest('id')->first();
             if (!$fi_details) {
                 return [];
             }
 
+            $fmt = fn ($v) => !empty($v) ? date('d-m-Y H:i:s', strtotime($v)) : '';
+
+            $partyOrder = ['borrower' => 0, 'co_applicant' => 1, 'guarantor' => 2];
+
+            $parties = $fi_details->parties()
+                ->get()
+                ->sortBy(fn ($p) => $partyOrder[$p->party_type] ?? 9)
+                ->values()
+                ->map(fn ($p) => [
+                    'party_type'                => $p->party_type,
+                    'label'                     => match ($p->party_type) {
+                        'co_applicant' => 'Co-applicant',
+                        'guarantor'    => 'Guarantor',
+                        default        => 'Borrower',
+                    },
+                    'name'                      => $p->name ?? '',
+                    'mobile'                    => $p->mobile ?? '',
+                    'field_verification_status' => (bool) $p->is_verified,
+                    'verification_time'         => $fmt($p->verification_time),
+                    'field_inspection_image'    => !empty($p->fi_image) ? $this->fileStorage->urlOrNull($p->fi_image) : '',
+                    'meter_image'               => !empty($p->meter_image) ? $this->fileStorage->urlOrNull($p->meter_image) : '',
+                    'fi_image_2'                => $p->party_type === 'borrower' ? (!empty($p->fi_image_2) ? $this->fileStorage->urlOrNull($p->fi_image_2) : '') : '',
+                    'fi_image_3'                => $p->party_type === 'borrower' ? (!empty($p->fi_image_3) ? $this->fileStorage->urlOrNull($p->fi_image_3) : '') : '',
+                    'meter_verification_status' => $p->meter_verification_status ?? '',
+                    'meter_remarks'             => $p->meter_remarks ?? '',
+                    'meter_uploaded_at'         => $fmt($p->meter_uploaded_at),
+                    'meter_verified_at'         => $fmt($p->meter_verified_at),
+                    'latitude'                  => $p->latitude ?? '',
+                    'longitude'                 => $p->longitude ?? '',
+                    'distance'                  => $p->distance ?? '',
+                ])
+                ->all();
+
+            // Borrower party mirrored to top level for backward compatibility.
+            $borrower = collect($parties)->firstWhere('party_type', 'borrower') ?? [];
+
             return [
-                'name' => $fi_details->name ?? '',
-                'mobile' => $fi_details->mobile ?? '',
-                'field_verification_status' => $fi_details->is_inspection_verified ?? '',
-                'verification_time' => isset($fi_details->verification_time) ? date('d-m-Y H:i:s', strtotime($fi_details->verification_time)) : '',
-                'field_inspection_image' => $fi_details->fi_image ?? '',
-                'latitude' => $fi_details->latitude ?? '',
-                'longitude' => $fi_details->longitude ?? '',
-                'distance' => $fi_details->distance ?? '',
-                'address' => $fi_details->address ?? '',
-                'meter_image' => $fi_details->meter_image ?? '',
-                'meter_verification_status' => $fi_details->meter_verification_status ?? '',
-                'meter_remarks' => $fi_details->meter_remarks ?? '',
-                'meter_uploaded_at' => !empty($fi_details->meter_uploaded_at) ? date('d-m-Y H:i:s', strtotime($fi_details->meter_uploaded_at)) : '',
-                'meter_verified_at' => !empty($fi_details->meter_verified_at) ? date('d-m-Y H:i:s', strtotime($fi_details->meter_verified_at)) : '',
+                // ── legacy flat borrower fields (source: borrower party) ──
+                'name'                      => $borrower['name'] ?? ($fi_details->name ?? ''),
+                'mobile'                    => $borrower['mobile'] ?? ($fi_details->mobile ?? ''),
+                'field_verification_status' => $fi_details->is_inspection_verified ?? '', // application-level aggregate
+                'verification_time'         => $borrower['verification_time'] ?? '',
+                'field_inspection_image'    => !empty($borrower['field_inspection_image']) ? $this->fileStorage->urlOrNull($borrower['field_inspection_image']) : '',
+                'latitude'                  => $borrower['latitude'] ?? '',
+                'longitude'                 => $borrower['longitude'] ?? '',
+                'distance'                  => $borrower['distance'] ?? '',
+                'address'                   => $fi_details->address ?? '',
+                'meter_image'               => !empty($borrower['meter_image']) ? $this->fileStorage->urlOrNull($borrower['meter_image']) : '',
+                'fi_image_2'                => !empty($borrower['fi_image_2']) ? $this->fileStorage->urlOrNull($borrower['fi_image_2']) : '',
+                'fi_image_3'                => !empty($borrower['fi_image_3']) ? $this->fileStorage->urlOrNull($borrower['fi_image_3']) : '',
+                'meter_verification_status' => $borrower['meter_verification_status'] ?? '',
+                'meter_remarks'             => $borrower['meter_remarks'] ?? '',
+                'meter_uploaded_at'         => $borrower['meter_uploaded_at'] ?? '',
+                'meter_verified_at'         => $borrower['meter_verified_at'] ?? '',
+
+                // ── new per-party breakdown ──
+                'is_completed'              => (bool) $fi_details->is_inspection_verified,
+                'completed_at'              => $fmt($fi_details->completed_at),
+                'required_parties'          => $fi_details->requiredPartyTypes(),
+                'parties'                   => $parties,
             ];
         } catch (Exception $e) {
             return [];

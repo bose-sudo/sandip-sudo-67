@@ -630,6 +630,7 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
     Route::get('download-agreement-file/{borrower_id}', [DashboardController::class, 'download_agreement_file'])->name('admin.download-agreement-file');
     Route::get('cam-sheet-doc-download/{borrower_id}', [DashboardController::class, 'cam_sheet_doc'])->name('admin.cam-sheet-doc-download');
 
+    Route::get('cam-sheet-doc-download-test/{borrower_id}', [DashboardController::class, 'cam_sheet_doc_test'])->name('admin.cam-sheet-doc-download-test');
     Route::post('store-lender-product-charges', [ProductController::class, 'store_lender_product_charges']);
     Route::get('get-active-charges-by-product/{product_id}', [ProductController::class, 'getActiveChargesByProduct']);
     

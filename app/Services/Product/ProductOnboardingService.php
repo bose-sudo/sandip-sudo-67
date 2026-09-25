@@ -98,6 +98,9 @@ final class ProductOnboardingService
             'ex_showroom_price' => $data['ex_showroom_price'] ?? $product->ex_showroom_price,
             'modified_by'       => $userId,
             'ip'                => $ip,
+            'approve_multi'     => array_key_exists('approve_multi', $data)
+            ? filter_var($data['approve_multi'], FILTER_VALIDATE_BOOLEAN)
+            : false,
         ], $this->baselineFields($data, $product)));
         return $product->fresh();
     }

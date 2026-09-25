@@ -36,6 +36,7 @@ class DynamicProductController extends Controller
             $p->iot_amount = $p->iot ?? 0;
             $p->fldg_amount = $p->fldg ?? 0;
             $p->interest_rate = $p->interest ?? 0;
+            $p->approve_multi = (bool) ($p->approve_multi ?? false);
             return $p;
         });
 

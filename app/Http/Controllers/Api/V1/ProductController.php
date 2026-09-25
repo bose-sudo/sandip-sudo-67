@@ -806,6 +806,7 @@ class ProductController extends Controller
                 'iot' => 'required|numeric',
                 'insurance_1st_year' => 'required|numeric',
                 'insurance_2nd_year' => 'required|numeric',
+                'approve_multi' => 'nullable|boolean',
             ]);
 
             $model = ProductModel::findOrFail($id);
@@ -842,6 +843,10 @@ class ProductController extends Controller
             $model->iot = $request->input('iot');
             $model->insurance_1st_year = $request->input('insurance_1st_year');
             $model->insurance_2nd_year = $request->input('insurance_2nd_year');
+
+            $model->approve_multi = $request->has('approve_multi') 
+                ? filter_var($request->input('approve_multi'), FILTER_VALIDATE_BOOLEAN) 
+                : false;
 
             // Save the updated model
             $model->save();
@@ -1347,6 +1352,7 @@ class ProductController extends Controller
             $files->getCollection()->transform(function ($file) {
                 // Assuming file_path is the path stored in the database like 'storage/folder/subfolder'
                 $file->file_path = url($file->file_path); // Or use asset($file->file_path)
+                $file->approve_multi = $file->approve_multi ?? false; // new field for approve_multi, default to false if null
                 return $file;
             });
 

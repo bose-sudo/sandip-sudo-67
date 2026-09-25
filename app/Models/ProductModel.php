@@ -40,7 +40,8 @@ class ProductModel extends Model
         'ip',
         'sub_product_type',
         'sub_product_type_id',
-        'interest_type'
+        'interest_type',
+        'approve_multi',
     ];
 
     public function dealer()

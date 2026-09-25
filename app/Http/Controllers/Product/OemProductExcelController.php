@@ -200,6 +200,7 @@ class OemProductExcelController extends Controller
 
             $files->getCollection()->transform(function ($f) {
                 $f->file_path = url($f->file_path);
+                $f->approve_multi = (bool) ($f->approve_multi ?? false);
                 return $f;
             });
             return $this->send_response('success', 'Files retrieved successfully', 200, $files);

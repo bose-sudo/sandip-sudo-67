@@ -40,6 +40,7 @@ class OemDynamicProduct extends Model
         'status',
         'modified_by',
         'ip',
+        'approve_multi',
     ];
 
     protected $casts = [
@@ -55,6 +56,7 @@ class OemDynamicProduct extends Model
         'iot'                    => 'decimal:2',
         'insurance_1st_year'     => 'decimal:2',
         'insurance_2nd_year'     => 'decimal:2',
+        'approve_multi'          => 'boolean',
     ];
 
     public function oem(): BelongsTo

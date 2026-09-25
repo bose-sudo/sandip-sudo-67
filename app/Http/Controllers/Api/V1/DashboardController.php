@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\HelperController;
 use App\Models\BatteryTypes;
 use App\Models\BorrowerAccountDetails;
+use App\Models\OemDynamicProduct;
 use App\Models\BorrowerAddress;
 use App\Models\BorrowerIotDetails;
 use App\Models\BorrowerKyc;
@@ -2256,618 +2257,1566 @@ class DashboardController extends Controller
         }
     }
 
-    public function cam_sheet_doc($borrower_id)
-{
-    if(!isset($borrower_id) || empty($borrower_id)) {
-        return $this->helper_controller->send_response('failed', "Borrower id is required", 422);
-    }
+    // public function cam_sheet_doc($borrower_id)
+    // {
+    //     if(!isset($borrower_id) || empty($borrower_id)) {
+    //         return $this->helper_controller->send_response('failed', "Borrower id is required", 422);
+    //     }
 
-    $loan_basic_details = LoanBasicDetails::with([
-        'dealer',
-        'latestBorrowerKyc',
-        'latestBorrowerAddress',
-        'latestBorrowerOccupation',
-        'latestCoapplicantKyc',
-        'latestCoapplicantOccupation',
-        'latestGuarantor',
-        'latestGuarantorOccupation'
-    ])->where('borrower_id', $borrower_id)->first();
-    
-    if (!$loan_basic_details) {
-        return $this->helper_controller->send_response('failed', "Invalid borrower id", 422);
-    }
-
-    date_default_timezone_set('Asia/Kolkata');
-    $date = date('d-m-Y');
-
-    // Example data array fetched from the database
-    $sourcingData[] = [
-        'col_1' => 'PREPARE DATE',
-        'col_2' => $date,
-        'col_3' => 'PREPARED BY (CREDIT MANAGER & ID)',
-        'col_4' => '',
-    ];
-    $sourcingData[] = [
-        'col_1' => 'STATE NAME',
-        'col_2' => '',
-        'col_3' => 'SOURCING THROUGH (DEALER NAME)',
-        'col_4' => $loan_basic_details->dealer->name ?? '',
-    ];
-    $sourcingData[] = [
-        'col_1' => 'BRANCH NAME',
-        'col_2' => '',
-        'col_3' => 'DEALER EXECUTIVE',
-        'col_4' => '',
-    ];
-    $sourcingData[] = [
-        'col_1' => 'PRODUCT TYPE',
-        'col_2' => 'EV',
-        'col_3' => 'DST NAME',
-        'col_4' => '',
-    ];
-    $sourcingData[] = [
-        'col_1' => 'PORTFOLIO',
-        'col_2' => '',
-        'col_3' => 'CHECKED BY CM /OPS @ FINAYO',
-        'col_4' => '',
-    ];
-    
-    $borrower_kyc = $loan_basic_details->latestBorrowerKyc;
-    $coapplicant_kyc = $loan_basic_details->latestCoapplicantKyc;
-    $guarantor_kyc = $loan_basic_details->latestGuarantor;
-    $personalDetails[] = [
-        'col_1' => 'NAME',
-        'col_2' => $borrower_kyc->name ?? '',
-        'col_3' => $coapplicant_kyc->name ?? '',
-        'col_4' => $guarantor_kyc->name ?? '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'FATHER/SPOUSE NAME',
-        'col_2' => $borrower_kyc->father_name ?? $borrower_kyc->husband_name ?? '',
-        'col_3' => $coapplicant_kyc->father_name ?? $coapplicant_kyc->husband_name ?? '',
-        'col_4' => $guarantor_kyc->father_name ?? $guarantor_kyc->husband_name ?? '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'GENDER',
-        'col_2' => $borrower_kyc->gender ?? '',
-        'col_3' => $coapplicant_kyc->gender ?? '',
-        'col_4' => $guarantor_kyc->gender ?? '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'CONTACT NO',
-        'col_2' => $borrower_kyc->mobile ?? '',
-        'col_3' => $coapplicant_kyc->mobile ?? '',
-        'col_4' => $guarantor_kyc->mobile ?? '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'DOB (DD/MM/YY)',
-        'col_2' => isset($borrower_kyc->dob_date) ? date('d-M-Y', strtotime($borrower_kyc->dob_date)) : '',
-        'col_3' => isset($coapplicant_kyc->dob_date) ? date('d-M-Y', strtotime($coapplicant_kyc->dob_date)) : '',
-        'col_4' => isset($guarantor_kyc->dob_date) ? date('d-M-Y', strtotime($guarantor_kyc->dob_date)) : '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'Age as on date',
-        'col_2' => '',
-        'col_3' => '',
-        'col_4' => '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'Age EOT',
-        'col_2' => '',
-        'col_3' => '',
-        'col_4' => '',
-    ];
-
-    $personalDetails[] = [
-        'col_1' => 'MARITAL STATUS',
-        'col_2' => $borrower_kyc->marital_status ?? '',
-        'col_3' => $coapplicant_kyc->marital_status ?? '',
-        'col_4' => $guarantor_kyc->marital_status ?? '',
-    ];
-
-    $credit_summary = $loan_basic_details->latestCreditSummary;
-    if($loan_basic_details->latestCoapplicantKyc) {
-        $coappli_cibil_score = $credit_summary->coappli_cibil_score; 
-    }
-    $personalDetails[] = [
-        'col_1' => 'CIBIL SCORE',
-        'col_2' => $credit_summary->cibil_score ?? '-1',
-        'col_3' => $coappli_cibil_score ?? '',
-        'col_4' => $credit_summary->guarantor_cibil_score ?? '-1',
-    ];
-    $borrower_address = $loan_basic_details->latestBorrowerAddress;
-    $coapplicant_occupation = $loan_basic_details->latestCoapplicantOccupation;
-    $guarantor_occupation = $loan_basic_details->latestGuarantorOccupation;
-
-    $personalDetails[] = [
-        'col_1' => 'RESIDENCE TYPE',
-        'col_2' => $borrower_address->resident_type ?? '',
-        'col_3' => $coapplicant_occupation->resident_type ?? '',
-        'col_4' => $guarantor_occupation->resident_type ?? '',
-    ];
-
-    if($borrower_address) {
-        $borrower_single_line_address = trim($borrower_address->current_address, ', ');
-        $borrower_single_line_address = strtoupper($borrower_single_line_address);
-    }
-
-    if($guarantor_occupation) {
-        $guarantor_single_line_address = trim($guarantor_occupation->current_address, ', ');
-        $guarantor_single_line_address = strtoupper($guarantor_single_line_address);
-    }
+    //     $loan_basic_details = LoanBasicDetails::with([
+    //         'dealer',
+    //         'latestBorrowerKyc',
+    //         'latestBorrowerAddress',
+    //         'latestBorrowerOccupation',
+    //         'latestCoapplicantKyc',
+    //         'latestCoapplicantOccupation',
+    //         'latestGuarantor',
+    //         'latestGuarantorOccupation'
+    //     ])->where('borrower_id', $borrower_id)->first();
         
-    if($coapplicant_occupation) {
+    //     if (!$loan_basic_details) {
+    //         return $this->helper_controller->send_response('failed', "Invalid borrower id", 422);
+    //     }
 
-        $coapplicant_single_line_address = trim($coapplicant_occupation->current_address, ',');
-        $coapplicant_single_line_address = strtoupper($coapplicant_single_line_address);
+    //     date_default_timezone_set('Asia/Kolkata');
+    //     $date = date('d-m-Y');
+
+    //     // Example data array fetched from the database
+    //     $sourcingData[] = [
+    //         'col_1' => 'PREPARE DATE',
+    //         'col_2' => $date,
+    //         'col_3' => 'PREPARED BY (CREDIT MANAGER & ID)',
+    //         'col_4' => '',
+    //     ];
+    //     $sourcingData[] = [
+    //         'col_1' => 'STATE NAME',
+    //         'col_2' => '',
+    //         'col_3' => 'SOURCING THROUGH (DEALER NAME)',
+    //         'col_4' => $loan_basic_details->dealer->name ?? '',
+    //     ];
+    //     $sourcingData[] = [
+    //         'col_1' => 'BRANCH NAME',
+    //         'col_2' => '',
+    //         'col_3' => 'DEALER EXECUTIVE',
+    //         'col_4' => '',
+    //     ];
+    //     $sourcingData[] = [
+    //         'col_1' => 'PRODUCT TYPE',
+    //         'col_2' => 'EV',
+    //         'col_3' => 'DST NAME',
+    //         'col_4' => '',
+    //     ];
+    //     $sourcingData[] = [
+    //         'col_1' => 'PORTFOLIO',
+    //         'col_2' => '',
+    //         'col_3' => 'CHECKED BY CM /OPS @ FINAYO',
+    //         'col_4' => '',
+    //     ];
+        
+    //     $borrower_kyc = $loan_basic_details->latestBorrowerKyc;
+    //     $coapplicant_kyc = $loan_basic_details->latestCoapplicantKyc;
+    //     $guarantor_kyc = $loan_basic_details->latestGuarantor;
+    //     $personalDetails[] = [
+    //         'col_1' => 'NAME',
+    //         'col_2' => $borrower_kyc->name ?? '',
+    //         'col_3' => $coapplicant_kyc->name ?? '',
+    //         'col_4' => $guarantor_kyc->name ?? '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'FATHER/SPOUSE NAME',
+    //         'col_2' => $borrower_kyc->father_name ?? $borrower_kyc->husband_name ?? '',
+    //         'col_3' => $coapplicant_kyc->father_name ?? $coapplicant_kyc->husband_name ?? '',
+    //         'col_4' => $guarantor_kyc->father_name ?? $guarantor_kyc->husband_name ?? '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'GENDER',
+    //         'col_2' => $borrower_kyc->gender ?? '',
+    //         'col_3' => $coapplicant_kyc->gender ?? '',
+    //         'col_4' => $guarantor_kyc->gender ?? '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'CONTACT NO',
+    //         'col_2' => $borrower_kyc->mobile ?? '',
+    //         'col_3' => $coapplicant_kyc->mobile ?? '',
+    //         'col_4' => $guarantor_kyc->mobile ?? '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'DOB (DD/MM/YY)',
+    //         'col_2' => isset($borrower_kyc->dob_date) ? date('d-M-Y', strtotime($borrower_kyc->dob_date)) : '',
+    //         'col_3' => isset($coapplicant_kyc->dob_date) ? date('d-M-Y', strtotime($coapplicant_kyc->dob_date)) : '',
+    //         'col_4' => isset($guarantor_kyc->dob_date) ? date('d-M-Y', strtotime($guarantor_kyc->dob_date)) : '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'Age as on date',
+    //         'col_2' => '',
+    //         'col_3' => '',
+    //         'col_4' => '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'Age EOT',
+    //         'col_2' => '',
+    //         'col_3' => '',
+    //         'col_4' => '',
+    //     ];
+
+    //     $personalDetails[] = [
+    //         'col_1' => 'MARITAL STATUS',
+    //         'col_2' => $borrower_kyc->marital_status ?? '',
+    //         'col_3' => $coapplicant_kyc->marital_status ?? '',
+    //         'col_4' => $guarantor_kyc->marital_status ?? '',
+    //     ];
+
+    //     $credit_summary = $loan_basic_details->latestCreditSummary;
+    //     if($loan_basic_details->latestCoapplicantKyc) {
+    //         $coappli_cibil_score = $credit_summary->coappli_cibil_score; 
+    //     }
+    //     $personalDetails[] = [
+    //         'col_1' => 'CIBIL SCORE',
+    //         'col_2' => $credit_summary->cibil_score ?? '-1',
+    //         'col_3' => $coappli_cibil_score ?? '',
+    //         'col_4' => $credit_summary->guarantor_cibil_score ?? '-1',
+    //     ];
+    //     $borrower_address = $loan_basic_details->latestBorrowerAddress;
+    //     $coapplicant_occupation = $loan_basic_details->latestCoapplicantOccupation;
+    //     $guarantor_occupation = $loan_basic_details->latestGuarantorOccupation;
+
+    //     $personalDetails[] = [
+    //         'col_1' => 'RESIDENCE TYPE',
+    //         'col_2' => $borrower_address->resident_type ?? '',
+    //         'col_3' => $coapplicant_occupation->resident_type ?? '',
+    //         'col_4' => $guarantor_occupation->resident_type ?? '',
+    //     ];
+
+    //     if($borrower_address) {
+    //         $borrower_single_line_address = trim($borrower_address->current_address, ', ');
+    //         $borrower_single_line_address = strtoupper($borrower_single_line_address);
+    //     }
+
+    //     if($guarantor_occupation) {
+    //         $guarantor_single_line_address = trim($guarantor_occupation->current_address, ', ');
+    //         $guarantor_single_line_address = strtoupper($guarantor_single_line_address);
+    //     }
+            
+    //     if($coapplicant_occupation) {
+
+    //         $coapplicant_single_line_address = trim($coapplicant_occupation->current_address, ',');
+    //         $coapplicant_single_line_address = strtoupper($coapplicant_single_line_address);
+    //     }
+
+    //     $personalDetails[] = [
+    //         'col_1' => 'Current Adderess',
+    //         'col_2' => $borrower_single_line_address ?? '',
+    //         'col_3' => $coapplicant_single_line_address ?? '',
+    //         'col_4' => $guarantor_single_line_address ?? '',
+    //     ];
+    //     $personalDetails[] = [
+    //         'col_1' => 'Native Place',
+    //         'col_2' => '',
+    //         'col_3' => '',
+    //         'col_4' => '',
+    //     ];
+    //     $personalDetails[] = [
+    //         'col_1' => 'PAN Number',
+    //         'col_2' => $borrower_kyc->pan ?? '',
+    //         'col_3' => $coapplicant_kyc->pan ?? '',
+    //         'col_4' => $guarantor_kyc->pan ?? '',
+    //     ];
+        
+    //     $personalDetails[] = [
+    //         'col_1' => 'DISTANCE FROM REEYANSH DEALER OFFICE',
+    //         'col_2' => '',
+    //         'col_3' => '',
+    //         'col_4' => '',
+    //     ];
+    //     $personalDetails[] = [
+    //         'col_1' => 'FI STATUS',
+    //         'col_2' => '',
+    //         'col_3' => '',
+    //         'col_4' => '',
+    //     ];
+    //     $personalDetails[] = [
+    //         'col_1' => 'RELATION WITH APPLICANT',
+    //         'col_2' => 'SELF',
+    //         'col_3' => isset($coapplicant_kyc->relation_with_borrower) ? strtoupper($coapplicant_kyc->relation_with_borrower) : '',
+    //         'col_4' => isset($guarantor_kyc->relation_with_borrower) ? strtoupper($guarantor_kyc->relation_with_borrower) : '',
+    //     ];
+
+    //     $personalDetails[] = [
+    //         'col_1' => 'Residence since (Years)',
+    //         'col_2' => isset($borrower_address->years_living) ? round($borrower_address->years_living) : '',
+    //         'col_3' => isset($coapplicant_occupation->years_living) ? round($coapplicant_occupation->years_living) : '',
+    //         'col_4' => isset($guarantor_occupation->years_living) ? round($guarantor_occupation->years_living) : '',
+    //     ];
+
+
+    //     $product_details = ProductModel::where('dealer_id', $loan_basic_details->dealer->id)->where('name',  $loan_basic_details->model)->first();
+    //     $assetDetails[] = [
+    //         "col_1" => 'VEHICLE SEGMENT',
+    //         "col_2" => 'ELECTRONIC VEHICLE',
+    //         "col_3" => 'VEHICLE MODEL',
+    //         "col_4" => $loan_basic_details->model ?? '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'VEHICLE MANUFACTURE',
+    //         "col_2" => isset($product_details) ? $product_details->manufacture_name : '',
+    //         "col_3" => 'DLX',
+    //         "col_4" => isset($product_details) ? $product_details->battery_type : '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'Cost of Vehicle (Ex-Showroom Price)',
+    //         "col_2" => isset($product_details) ? $product_details->ex_showroom_price : '',
+    //         "col_3" => 'Cost of Vehicle (On-Road Price)',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'COST OF VEHICLE (On Road / Ex-showroom)',
+    //         "col_2" => '',
+    //         "col_3" => 'MFG YEAR',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'LOAN AMOUNT REQUESTED',
+    //         "col_2" => $loan_basic_details->loan_amount ?? '',
+    //         "col_3" => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'AMOUNT OF MARGIN',
+    //         "col_2" => '',
+    //         "col_3" => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'NET LOAN AMOUNT',
+    //         "col_2" => $loan_basic_details->loan_amount ?? '',
+    //         "col_3" => 'LOAN SURAKSHA AMOUNT (IF FUNDED)',
+    //         "col_4" => '',
+    //     ];
+
+    //     $assetDetails[] = [
+    //         "col_1" => 'TOTAL NET LTV %',
+    //         "col_2" => '',
+    //         "col_3" => 'LOAN SURAKSHA AMOUNT (IF FUNDED)',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'Gross Loan Amt. (Including Loan Suraksha & Insurance)',
+    //         "col_2" => $loan_basic_details->loan_amount ?? '',
+    //         "col_3" => 'IRR',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'Gross LTV % (Including Loan Suraksha & Insurance)',
+    //         "col_2" => '',
+    //         "col_3" => 'INSURANCE COMPANY NAME',
+    //         "col_4" => '',
+    //     ];
+    //     $assetDetails[] = [
+    //         "col_1" => 'LTV AS PER POLICY',
+    //         "col_2" => '',
+    //         "col_3" => 'Dealer Quotation Availbale',
+    //         "col_4" => '',
+    //     ];
+
+    //     $loan_amount = isset($loan_basic_details->loan_amount) ? floatval($loan_basic_details->loan_amount) : 0;
+    //     $loan_tenure = isset($loan_basic_details->loan_term) ? $loan_basic_details->loan_term : 0;
+    //     $interest_rate = isset($product_details) ? floatval($product_details->interest) : 17.5;
+
+    //     $emi = $this->helper_controller->calculateFlatInterestEMI($loan_amount, $interest_rate, $loan_tenure);
+    //     // return round($emi, 2);
+    //     $assetDetails[] = [
+    //         "col_1" => 'TENURE REQUEST (IN MONTHS)',
+    //         "col_2" => $loan_basic_details->loan_term ?? '',
+    //         "col_3" => 'FINAL EMI AMOUNT',
+    //         "col_4" => '',
+    //     ];
+        
+    //     $borrower_occupation = $loan_basic_details->latestBorrowerOccupation;   
+    //     $businessProfile[] = [
+    //         "col_1" => 'Nature of Work',
+    //         "col_2" => isset($borrower_occupation) ? $borrower_occupation->current_occupation : '',
+    //         "col_3" => 'Current Business Since',    
+    //         "col_4" => '',
+    //     ];
+    //     $businessProfile[] = [
+    //         "col_1" => 'Working Since',
+    //         "col_2" => '',
+    //         "col_3" => 'Agricalture land',
+    //         "col_4" => '',
+    //     ];
+    //     $businessProfile[] = [
+    //         "col_1" => 'Monthly Income',
+    //         "col_2" => isset($borrower_occupation) ? $borrower_occupation->monthly_earning : '',
+    //         "col_3" => 'Vehicle used by',
+    //         "col_4" => '',
+    //     ];
+        
+    //     $marketReference[] = [
+    //         "col_1" => 'Name of Person',
+    //         "col_2" => 'Address',
+    //         "col_3" => 'Contact No',
+    //         "col_4" => 'Relation with Applicant',
+    //     ];
+
+    //     $reference_details = BorrowerReferenceDetails::where('borrower_id', $loan_basic_details->id)->where('is_verified_1', true)->where('is_verified_2', true)->first();
+        
+    //     $marketReference[] = [
+    //         "col_1" => isset($reference_details) ? $reference_details->reference_1 : '',
+    //         "col_2" => isset($reference_details) ? $reference_details->address_1 : '',
+    //         "col_3" => isset($reference_details) ? $reference_details->mobile_1 : '',
+    //         "col_4" => isset($reference_details) ? $reference_details->relation_1 : '',
+    //     ];
+
+    //     $marketReference[] = [
+    //         "col_1" => isset($reference_details) ? $reference_details->reference_2 : '',
+    //         "col_2" => isset($reference_details) ? $reference_details->address_2 : '',
+    //         "col_3" => isset($reference_details) ? $reference_details->mobile_2 : '',
+    //         "col_4" => isset($reference_details) ? $reference_details->relation_2 : '',
+    //     ];
+
+    //     $dealBackGround[] = [
+    //         "col_1" => 'Applicant Profile',
+    //         "col_2" => '',
+    //         "col_3" => '',
+    //         "col_4" => '',
+    //     ];
+        
+    //     $dealBackGround[] = [
+    //         "col_1" => 'Co applicant Profile',
+    //         "col_2" => '',
+    //         "col_3" => '',
+    //         "col_4" => '',
+    //     ];
+    //     $dealBackGround[] = [
+    //         "col_1" => 'Guarantor Profile',
+    //         "col_2" => '',
+    //         "col_3" => '',
+    //         "col_4" => '',
+    //     ];
+
+
+    //     // return $personalDetails;
+
+    //     // Define the Excel file name
+    //     $fileName = 'Sourcing_Details_' . $borrower_id . '.xlsx';
+        
+    //     // Store the Excel file in the storage
+    //     Excel::store(new class($sourcingData, $personalDetails, $assetDetails, $businessProfile, $marketReference, $dealBackGround) implements \Maatwebsite\Excel\Concerns\WithEvents {
+    //         protected $sourcingData;
+    //         protected $personalDetails;
+    //         protected $assetDetails;
+    //         protected $businessProfile;
+    //         protected $marketReference;
+    //         protected $dealBackGround;
+
+    //         public function __construct(array $sourcingData, array $personalDetails, array $assetDetails, array $businessProfile, array $marketReference, array $dealBackGround)
+    //         {
+    //             $this->sourcingData = $sourcingData;
+    //             $this->personalDetails = $personalDetails;
+    //             $this->assetDetails = $assetDetails;
+    //             $this->businessProfile = $businessProfile;
+    //             $this->marketReference = $marketReference;
+    //             $this->dealBackGround = $dealBackGround;
+    //         }
+
+    //         public function registerEvents(): array
+    //         {
+    //             return [
+    //                 \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
+    //                     $sheet = $event->sheet->getDelegate();
+
+    //                     // Auto-size columns
+    //                     foreach (range('A', 'D') as $column) {
+    //                         $sheet->getColumnDimension($column)->setAutoSize(true);
+    //                     }
+                        
+    //                     // Set title and format
+    //                     $sheet->mergeCells('A1:D1');
+    //                     $sheet->setCellValue('A1', 'SOURCING DETAIL');
+    //                     $sheet->getStyle('A1')->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+
+    //                     // Fill data
+    //                     $row = 2;
+    //                     foreach ($this->sourcingData as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'PERSONAL DETAIL');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+                        
+    //                     $row++;
+                        
+    //                     $sheet->setCellValue('A' . $row, "PARTICULAR");
+    //                     $sheet->setCellValue('B' . $row, "APPLICANT");
+    //                     $sheet->setCellValue('C' . $row, "CO-APPLICANT");
+    //                     $sheet->setCellValue('D' . $row, "GAURANTOR");
+    //                     $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+
+    //                     $row++;
+    //                     foreach ($this->personalDetails as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'FINANCE & ASSET DETAIL (New Vehicle)');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+
+    //                     $row++;
+
+    //                     foreach ($this->assetDetails as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'BUSINESS PROFILE');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+
+    //                     $row++;
+                        
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'SELF EMPLOYED - Professional or Non Professional');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+
+    //                     $row++;
+    //                     foreach ($this->businessProfile as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+                        
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'MARKET REFERENCE');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+                        
+    //                     $row++;
+    //                     foreach ($this->marketReference as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'Deal Background  (IN Short)');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+                        
+    //                     $row++;
+    //                     foreach ($this->dealBackGround as $item) {
+    //                         $sheet->setCellValue('A' . $row, $item['col_1']);
+    //                         $sheet->setCellValue('B' . $row, $item['col_2']);
+    //                         $sheet->setCellValue('C' . $row, $item['col_3']);
+    //                         $sheet->setCellValue('D' . $row, $item['col_4']);
+    //                         $row++;
+    //                     }
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'FLEET LIST (If Applicable)');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+                        
+    //                     $row++;
+                        
+    //                     $sheet->setCellValue('A' . $row, "Owner name & relation with applicant");
+    //                     $sheet->setCellValue('B' . $row, "Make /Model/Veh. No.");
+    //                     $sheet->setCellValue('C' . $row, "Free /Finance, Seasoning paid/total");
+    //                     $sheet->setCellValue('D' . $row, "Loan Amount / Status ETR/GTR/STR/PTR");
+    //                     $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+    //                     $row++;
+    //                     for($i=0; $i<2; $i++) {
+
+    //                         $sheet->setCellValue('A' . $row, '');
+    //                         $sheet->setCellValue('B' . $row, '');
+    //                         $sheet->setCellValue('C' . $row, '');
+    //                         $sheet->setCellValue('D' . $row, '');
+    //                         $row++;
+    //                     }
+                        
+    //                     $row++;
+
+    //                     $sheet->mergeCells('A'.$row.':D'.$row);
+    //                     $sheet->setCellValue('A'.$row, 'CIBIL JUSTIFICATION (If Applicable)');
+    //                     $sheet->getStyle('A'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+                        
+    //                     $row++;
+                        
+    //                     $sheet->setCellValue('A' . $row, "App./ Co-app/ G'tor NAME");
+    //                     $sheet->setCellValue('B' . $row, "OWNERSHIP TYPE");
+    //                     $sheet->setCellValue('C' . $row, "DPD  & OD Amount");
+    //                     $sheet->setCellValue('D' . $row, "Justification");
+    //                     $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
+    //                         'font' => [
+    //                             'bold' => true,
+    //                         ],
+    //                         'alignment' => [
+    //                             'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
+    //                         ],
+    //                     ]);
+    //                     $row++;
+    //                     for($i=0; $i<2; $i++) {
+
+    //                         $sheet->setCellValue('A' . $row, '');
+    //                         $sheet->setCellValue('B' . $row, '');
+    //                         $sheet->setCellValue('C' . $row, '');
+    //                         $sheet->setCellValue('D' . $row, '');
+    //                         $row++;
+    //                     }
+    //                 },
+    //             ];
+    //         }
+    //     }, 'public/Camsheet/' . $fileName);
+
+    //     // Return the download URL
+    //     // $downloadUrl = Storage::url('Camsheet/'.$fileName);
+    //     // $downloadUrl = 'storage/Camsheet/'.$fileName;
+    //     $downloadUrl = 'http://13.200.65.87/storage/Camsheet/'.$fileName;
+    //     return $this->helper_controller->send_response('success', "File generated successfully", 200, ['download_url' => $downloadUrl]);
+    // }
+
+    public function cam_sheet_doc($borrower_id)
+    {
+        if (!isset($borrower_id) || empty($borrower_id)) {
+            return $this->helper_controller->send_response('failed', "Borrower id is required", 422);
+        }
+
+        $loan_basic_details = LoanBasicDetails::with([
+            'dealer.beneficiaryDetails',
+            'latestBorrowerKyc',
+            'latestBorrowerAddress',
+            'latestBorrowerOccupation',
+            'latestCoapplicantKyc',
+            'latestCoapplicantOccupation',
+            'latestGuarantor',
+            'latestGuarantorOccupation',
+            'latestLoanScheme',
+            'latestCreditSummary',
+        ])->where('borrower_id', $borrower_id)->first();
+
+        if (!$loan_basic_details) {
+            return $this->helper_controller->send_response('failed', "Invalid borrower id", 422);
+        }
+
+        date_default_timezone_set('Asia/Kolkata');
+        $date = date('d-m-Y');
+
+        $loanScheme        = $loan_basic_details->latestLoanScheme;
+        $dealer            = $loan_basic_details->dealer;
+        $beneficiary       = $dealer->beneficiaryDetails ?? null;
+
+        $borrower_kyc      = $loan_basic_details->latestBorrowerKyc;
+        $coapplicant_kyc   = $loan_basic_details->latestCoapplicantKyc;
+        $guarantor_kyc     = $loan_basic_details->latestGuarantor;
+
+        $has_coapplicant   = (bool) $coapplicant_kyc;
+        $has_guarantor     = (bool) $guarantor_kyc;
+
+        $loan_tenure       = (int) ($loan_basic_details->loan_term ?? 0);
+
+        // ---------- helpers ----------
+        $ageAsOn = function (?string $dob, int $addMonths = 0) {
+            if (empty($dob)) return '';
+            try {
+                return Carbon::parse($dob)->diffInYears(Carbon::now()->addMonths($addMonths));
+            } catch (\Throwable $e) {
+                return '';
+            }
+        };
+
+        // ---------- SOURCING ----------
+        $sourcingData = [];
+        $sourcingData[] = ['col_1' => 'PREPARE DATE', 'col_2' => $date, 'col_3' => 'PREPARED BY (CREDIT MANAGER & ID)', 'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'STATE NAME',   'col_2' => '',    'col_3' => 'SOURCING THROUGH (DEALER NAME)',    'col_4' => $dealer->name ?? ''];
+        $sourcingData[] = ['col_1' => 'BRANCH NAME',  'col_2' => 'DELHI', 'col_3' => 'DEALER EXECUTIVE',                'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'PRODUCT TYPE', 'col_2' => 'EV',  'col_3' => 'DST NAME',                          'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'APPLICATION NO', 'col_2' => $loan_basic_details->borrower_id ?? '', 'col_3' => 'CHECKED BY CM /OPS @ FINAYO', 'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'DEALER BANK ACCOUNT NUMBER', 'col_2' => $beneficiary->account_number ?? '', 'col_3' => 'IFSC', 'col_4' => $beneficiary->ifsc_code ?? ''];
+        $sourcingData[] = ['col_1' => 'BANK NAME', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+
+        // ---------- PERSONAL ----------
+        $personalDetails = [];
+        $personalDetails[] = [
+            'col_1' => 'NAME',
+            'col_2' => $borrower_kyc->name ?? '',
+            'col_3' => $coapplicant_kyc->name ?? '',
+            'col_4' => $guarantor_kyc->name ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'FATHER/SPOUSE NAME',
+            'col_2' => $borrower_kyc->father_name ?? $borrower_kyc->husband_name ?? '',
+            'col_3' => $coapplicant_kyc->father_name ?? $coapplicant_kyc->husband_name ?? '',
+            'col_4' => $guarantor_kyc->father_name ?? $guarantor_kyc->husband_name ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'GENDER',
+            'col_2' => $borrower_kyc->gender ?? '',
+            'col_3' => $coapplicant_kyc->gender ?? '',
+            'col_4' => $guarantor_kyc->gender ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'CONTACT NO',
+            'col_2' => $borrower_kyc->mobile ?? '',
+            'col_3' => $coapplicant_kyc->mobile ?? '',
+            'col_4' => $guarantor_kyc->mobile ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'DOB (DD/MM/YY)',
+            'col_2' => !empty($borrower_kyc->dob_date) ? date('d-M-Y', strtotime($borrower_kyc->dob_date)) : '',
+            'col_3' => !empty($coapplicant_kyc->dob_date) ? date('d-M-Y', strtotime($coapplicant_kyc->dob_date)) : '',
+            'col_4' => !empty($guarantor_kyc->dob_date) ? date('d-M-Y', strtotime($guarantor_kyc->dob_date)) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Age as on date',
+            'col_2' => $ageAsOn($borrower_kyc->dob_date ?? null),
+            'col_3' => $has_coapplicant ? $ageAsOn($coapplicant_kyc->dob_date ?? null) : '',
+            'col_4' => $has_guarantor ? $ageAsOn($guarantor_kyc->dob_date ?? null) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Age EOT',
+            'col_2' => $ageAsOn($borrower_kyc->dob_date ?? null, $loan_tenure),
+            'col_3' => $has_coapplicant ? $ageAsOn($coapplicant_kyc->dob_date ?? null, $loan_tenure) : '',
+            'col_4' => $has_guarantor ? $ageAsOn($guarantor_kyc->dob_date ?? null, $loan_tenure) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'MARITAL STATUS',
+            'col_2' => $borrower_kyc->marital_status ?? '',
+            'col_3' => $coapplicant_kyc->marital_status ?? '',
+            'col_4' => $guarantor_kyc->marital_status ?? '',
+        ];
+
+        // ---------- CIBIL ----------
+        $credit_summary = $loan_basic_details->latestCreditSummary;
+
+        $cibil = fn($score) => (empty($score) || (float) $score == 0) ? 'NTC' : $score;
+
+        $personalDetails[] = [
+            'col_1' => 'CIBIL SCORE',
+            'col_2' => $cibil($credit_summary->cibil_score ?? null),
+            'col_3' => $has_coapplicant ? $cibil($credit_summary->coappli_cibil_score ?? null) : '',
+            'col_4' => $has_guarantor ? $cibil($credit_summary->guarantor_cibil_score ?? null) : '',
+        ];
+
+        $borrower_address       = $loan_basic_details->latestBorrowerAddress;
+        $coapplicant_occupation = $loan_basic_details->latestCoapplicantOccupation;
+        $guarantor_occupation   = $loan_basic_details->latestGuarantorOccupation;
+
+        $personalDetails[] = [
+            'col_1' => 'RESIDENCE TYPE',
+            'col_2' => $borrower_address->resident_type ?? '',
+            'col_3' => $coapplicant_occupation->resident_type ?? '',
+            'col_4' => $guarantor_occupation->resident_type ?? '',
+        ];
+
+        $borrower_single_line_address    = $borrower_address ? strtoupper(trim($borrower_address->current_address, ', ')) : '';
+        $guarantor_single_line_address   = $guarantor_occupation ? strtoupper(trim($guarantor_occupation->current_address, ', ')) : '';
+        $coapplicant_single_line_address = $coapplicant_occupation ? strtoupper(trim($coapplicant_occupation->current_address, ', ')) : '';
+
+        $personalDetails[] = [
+            'col_1' => 'Current Adderess',
+            'col_2' => $borrower_single_line_address,
+            'col_3' => $coapplicant_single_line_address,
+            'col_4' => $guarantor_single_line_address,
+        ];
+        $personalDetails[] = [
+            'col_1' => 'EMAIL ID',
+            'col_2' => $borrower_kyc->email ?? '',
+            'col_3' => $coapplicant_kyc->email ?? '',
+            'col_4' => $guarantor_kyc->email ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'PAN Number',
+            'col_2' => $borrower_kyc->pan ?? '',
+            'col_3' => $coapplicant_kyc->pan ?? '',
+            'col_4' => $guarantor_kyc->pan ?? '',
+        ];
+
+        // ---------- FIELD INSPECTION ----------
+        $field_inspection = FieldInspectionDetails::where('borrower_id', $loan_basic_details->id)
+            ->latest('id')->first();
+
+        $personalDetails[] = [
+            'col_1' => 'DISTANCE FROM DEALER OFFICE',
+            'col_2' => $field_inspection->distance ?? '',
+            'col_3' => '',
+            'col_4' => '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'FI STATUS',
+            'col_2' => $field_inspection ? ($field_inspection->is_inspection_verified ? 'Approved' : 'Not Approved') : '',
+            'col_3' => '',
+            'col_4' => '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'RELATION WITH APPLICANT',
+            'col_2' => 'SELF',
+            'col_3' => isset($coapplicant_kyc->relation_with_borrower) ? strtoupper($coapplicant_kyc->relation_with_borrower) : '',
+            'col_4' => isset($guarantor_kyc->relation_with_borrower) ? strtoupper($guarantor_kyc->relation_with_borrower) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Residence since (Years)',
+            'col_2' => isset($borrower_address->years_living) ? round($borrower_address->years_living) : '',
+            'col_3' => isset($coapplicant_occupation->years_living) ? round($coapplicant_occupation->years_living) : '',
+            'col_4' => isset($guarantor_occupation->years_living) ? round($guarantor_occupation->years_living) : '',
+        ];
+
+        // ---------- PRODUCT RESOLUTION (name + manufacturer only) ----------
+        $oem_product    = null;
+        $legacy_product = null;
+
+        if (!empty($loan_basic_details->model_id)) {
+            $oem_product = OemDynamicProduct::with('oem')
+                ->where('oem_product_unq', $loan_basic_details->model_id)->first();
+
+            if (!$oem_product) {
+                $legacy_product = ProductModel::where('model_unq', $loan_basic_details->model_id)->first();
+            }
+        }
+
+        if (!$oem_product && !$legacy_product && !empty($loanScheme?->product_id)) {
+            $oem_product = OemDynamicProduct::with('oem')->find($loanScheme->product_id);
+            if (!$oem_product) {
+                $legacy_product = ProductModel::find($loanScheme->product_id);
+            }
+        }
+
+        $product_name     = $oem_product->product_name ?? $legacy_product->name ?? $loan_basic_details->model ?? '';
+        $manufacture_name = $oem_product?->oem?->manufacturer ?? $legacy_product->manufacture_name ?? '';
+        $battery_type     = $oem_product->battery_type ?? $legacy_product->battery_type ?? '';
+
+        // ---------- SCHEME-DRIVEN FINANCIALS ----------
+        $ex_showroom_price = $loanScheme->ex_showroom_price ?? '';
+        $ltv_ratio         = $loanScheme->loan_to_value_ratio ?? '';
+        $interest_rate     = (float) ($loanScheme->interest ?? 0);
+        $interest_type     = $loanScheme->interest_type ?? 'flat';
+        $loan_amount       = (float) ($loanScheme->loan_amount ?? $loan_basic_details->loan_amount ?? 0);
+        $down_payment      = $loan_basic_details->down_payment ?? '';
+
+        // $emi = ($loan_amount > 0 && $loan_tenure > 0)
+        //     ? $this->getEmiAmount($loan_amount, $interest_rate, $loan_tenure, $interest_type)
+        //     : '';
+
+        // ---------- FOIR CALCULATION (Product-wise earning based) ----------
+        $emi = ($loan_amount > 0 && $loan_tenure > 0)
+            ? $this->getEmiAmount($loan_amount, $interest_rate, $loan_tenure, $interest_type)
+            : '';
+
+        // ---------- FOIR CALCULATION (Product-wise earning based) ----------
+        $emi_value        = is_numeric($emi) ? (float) $emi : 0;
+        $product_id       = $loanScheme->product_id ?? null;
+        $sub_product_name = strtoupper($product_name ?? '');
+
+        $rate_min = 0; $rate_max = 0;
+        $km_min   = 0; $km_max   = 0;
+        $days     = 25;      // working days/month
+        $min_foir = 50;      // minimum Net FOIR %
+
+        if ($product_id == 1) {
+            // L3 — E-Rickshaw / EV Three Wheeler
+            $rate_min = 7;  $rate_max = 12;
+            $km_min   = 75; $km_max   = 100;
+        } elseif ($product_id == 2) {
+            // L5 — E-Auto family
+            $rate_min = 12; $rate_max = 18;
+            $km_min   = 75; $km_max   = 120;
+        } elseif ($product_id == 3) {
+            // E-Two Wheeler
+            $rate_min = 7;  $rate_max = 12;
+            $km_min   = 75; $km_max   = 100;
+        } elseif ($product_id == 4) {
+            // Battery — no earning model
+            $rate_min = 0;  $rate_max = 0;
+            $km_min   = 0;  $km_max   = 0;
+        }
+
+        // 6S override (EKA L5-6S)
+        if (str_contains($sub_product_name, '6S')) {
+            $rate_min = 15; $rate_max = 20;
+            $km_min   = 100; $km_max  = 130;
+        }
+
+        // L5 Lite override
+        if (str_contains($sub_product_name, 'L5 LITE') || str_contains($sub_product_name, 'L5-LITE')) {
+            $rate_min = 7;  $rate_max = 12;
+            $km_min   = 75; $km_max   = 100;
+        }
+
+        // Income range calculation
+        $income_per_month_min = ($rate_min * $km_min) * $days;
+        $income_per_month_max = ($rate_max * $km_max) * $days;
+
+        // Net FOIR %
+        $net_foir_min = ($emi_value > 0 && $income_per_month_min > 0)
+            ? round(($income_per_month_min / $emi_value) * 100, 2) : 0;
+        $net_foir_max = ($emi_value > 0 && $income_per_month_max > 0)
+            ? round(($income_per_month_max / $emi_value) * 100, 2) : 0;
+
+        $is_foir_eligible = $net_foir_min >= $min_foir;
+
+        // Display strings
+        $income_range_display = ($income_per_month_max > 0)
+            ? number_format($income_per_month_min) . ' - ' . number_format($income_per_month_max)
+            : '';
+
+        $foir_range_display = ($net_foir_max > 0)
+            ? $net_foir_min . '% - ' . $net_foir_max . '%'
+            : '';
+
+        // ---------- ASSET ----------
+        $assetDetails = [];
+        $assetDetails[] = ['col_1' => 'VEHICLE SEGMENT', 'col_2' => 'ELECTRONIC VEHICLE', 'col_3' => 'VEHICLE MODEL', 'col_4' => $product_name];
+        $assetDetails[] = ['col_1' => 'VEHICLE MANUFACTURE', 'col_2' => $manufacture_name, 'col_3' => 'DLX', 'col_4' => $battery_type];
+        $assetDetails[] = ['col_1' => 'Cost of Vehicle (Ex-Showroom Price)', 'col_2' => $ex_showroom_price, 'col_3' => 'Cost of Vehicle (On-Road Price)', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'COST OF VEHICLE (On Road / Ex-showroom)', 'col_2' => $ex_showroom_price, 'col_3' => 'MFG YEAR', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'LOAN AMOUNT REQUESTED', 'col_2' => $loan_amount, 'col_3' => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'AMOUNT OF MARGIN (Down Payment)', 'col_2' => $down_payment, 'col_3' => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'NET LOAN AMOUNT', 'col_2' => $loan_amount, 'col_3' => 'LOAN SURAKSHA AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'TOTAL NET LTV %', 'col_2' => $ltv_ratio, 'col_3' => 'LOAN SURAKSHA AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'Gross Loan Amt. (Including Loan Suraksha & Insurance)', 'col_2' => 'NA.', 'col_3' => 'IRR', 'col_4' => $interest_rate];
+        $assetDetails[] = ['col_1' => 'Gross LTV % (Including Loan Suraksha & Insurance)', 'col_2' => 'NA.', 'col_3' => 'INSURANCE COMPANY NAME', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'LTV AS PER POLICY', 'col_2' => $ltv_ratio, 'col_3' => 'Dealer Quotation Availbale', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'TENURE REQUEST (IN MONTHS)', 'col_2' => $loan_tenure, 'col_3' => 'FINAL EMI AMOUNT', 'col_4' => $emi];
+
+        // ---------- BUSINESS PROFILE ----------
+        $borrower_occupation = $loan_basic_details->latestBorrowerOccupation;
+        $businessProfile = [];
+        $businessProfile[] = ['col_1' => 'Nature of Work', 'col_2' => $borrower_occupation->current_occupation ?? '', 'col_3' => 'Current Business Since', 'col_4' => ''];
+        $businessProfile[] = ['col_1' => 'Working Since', 'col_2' => '', 'col_3' => 'Agricalture land', 'col_4' => ''];
+        // $businessProfile[] = ['col_1' => 'Monthly Income', 'col_2' => $borrower_occupation->monthly_earning ?? '', 'col_3' => 'Vehicle used by', 'col_4' => ''];
+        $businessProfile[] = ['col_1' => 'Monthly Income', 'col_2' => $borrower_occupation->monthly_earning ?? '', 'col_3' => 'Vehicle used by', 'col_4' => 'SELF'];
+        // $businessProfile[] = [
+        //     'col_1' => 'Expected Monthly Income',
+        //     'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+        //     'col_3' => 'FOIR',
+        //     'col_4' => is_numeric($emi) ? $emi * 2 : '',
+        // ];
+
+        $businessProfile[] = [
+            'col_1' => 'Expected Monthly Income',
+            'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+            'col_3' => 'FERA (Future Earning & Repayment Analysis)',
+            'col_4' => $income_range_display,      // e.g. "22500 - 54000"
+        ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'Assessed Net Income (Min-Max)',
+        //     'col_2' => $income_range_display,
+        //     'col_3' => 'Net FOIR %',
+        //     'col_4' => $foir_range_display,        // e.g. "642.86% - 1542.86%"
+        // ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'FOIR Eligibility (≥50%)',
+        //     'col_2' => $is_foir_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE',
+        //     'col_3' => 'Assumption',
+        //     'col_4' => "Rate ₹{$rate_min}-{$rate_max}/km × {$km_min}-{$km_max} km/day × {$days} days",
+        // ];
+
+        // ---------- REFERENCES ----------
+        $marketReference = [];
+        $marketReference[] = ['col_1' => 'Name of Person', 'col_2' => 'Address', 'col_3' => 'Contact No', 'col_4' => 'Relation with Applicant'];
+
+        $reference_details = BorrowerReferenceDetails::where('borrower_id', $loan_basic_details->id)
+            ->where('is_verified_1', true)->where('is_verified_2', true)->first();
+
+        $marketReference[] = [
+            'col_1' => $reference_details->reference_1 ?? '',
+            'col_2' => $reference_details->address_1 ?? '',
+            'col_3' => $reference_details->mobile_1 ?? '',
+            'col_4' => $reference_details->relation_1 ?? '',
+        ];
+        $marketReference[] = [
+            'col_1' => $reference_details->reference_2 ?? '',
+            'col_2' => $reference_details->address_2 ?? '',
+            'col_3' => $reference_details->mobile_2 ?? '',
+            'col_4' => $reference_details->relation_2 ?? '',
+        ];
+
+        // ---------- DEAL BACKGROUND ----------
+        $dealBackGround = [];
+        $dealBackGround[] = ['col_1' => 'Applicant Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        if ($has_coapplicant) {
+            $dealBackGround[] = ['col_1' => 'Co applicant Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        }
+        if ($has_guarantor) {
+            $dealBackGround[] = ['col_1' => 'Guarantor Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        }
+
+        $fileName = 'Sourcing_Details_' . $borrower_id . '.xlsx';
+
+        Excel::store(new class($sourcingData, $personalDetails, $assetDetails, $businessProfile, $marketReference, $dealBackGround) implements \Maatwebsite\Excel\Concerns\WithEvents {
+            protected $sourcingData;
+            protected $personalDetails;
+            protected $assetDetails;
+            protected $businessProfile;
+            protected $marketReference;
+            protected $dealBackGround;
+
+            public function __construct(array $sourcingData, array $personalDetails, array $assetDetails, array $businessProfile, array $marketReference, array $dealBackGround)
+            {
+                $this->sourcingData    = $sourcingData;
+                $this->personalDetails = $personalDetails;
+                $this->assetDetails    = $assetDetails;
+                $this->businessProfile = $businessProfile;
+                $this->marketReference = $marketReference;
+                $this->dealBackGround  = $dealBackGround;
+            }
+
+            public function registerEvents(): array
+            {
+                return [
+                    \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
+                        $sheet = $event->sheet->getDelegate();
+
+                        $headerStyle = [
+                            'font'      => ['bold' => true],
+                            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+                        ];
+
+                        foreach (range('A', 'D') as $column) {
+                            $sheet->getColumnDimension($column)->setAutoSize(true);
+                        }
+
+                        $row = 1;
+
+                        $writeBanner = function (string $text) use ($sheet, &$row, $headerStyle) {
+                            $sheet->mergeCells('A' . $row . ':D' . $row);
+                            $sheet->setCellValue('A' . $row, $text);
+                            $sheet->getStyle('A' . $row)->applyFromArray($headerStyle);
+                            $row++;
+                        };
+
+                        $writeHeaderRow = function (array $cols) use ($sheet, &$row, $headerStyle) {
+                            $sheet->setCellValue('A' . $row, $cols[0]);
+                            $sheet->setCellValue('B' . $row, $cols[1]);
+                            $sheet->setCellValue('C' . $row, $cols[2]);
+                            $sheet->setCellValue('D' . $row, $cols[3]);
+                            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle);
+                            $row++;
+                        };
+
+                        $writeBlock = function (array $data) use ($sheet, &$row) {
+                            foreach ($data as $item) {
+                                $sheet->setCellValue('A' . $row, $item['col_1']);
+                                $sheet->setCellValue('B' . $row, $item['col_2']);
+                                $sheet->setCellValue('C' . $row, $item['col_3']);
+                                $sheet->setCellValue('D' . $row, $item['col_4']);
+                                $row++;
+                            }
+                        };
+
+                        $writeBanner('SOURCING DETAIL');
+                        $writeBlock($this->sourcingData);
+
+                        $writeBanner('PERSONAL DETAIL');
+                        $writeHeaderRow(['PARTICULAR', 'APPLICANT', 'CO-APPLICANT', 'GAURANTOR']);
+                        $writeBlock($this->personalDetails);
+
+                        $writeBanner('FINANCE & ASSET DETAIL (New Vehicle)');
+                        $writeBlock($this->assetDetails);
+
+                        $writeBanner('BUSINESS PROFILE');
+                        $writeBanner('SELF EMPLOYED - Professional or Non Professional');
+                        $writeBlock($this->businessProfile);
+
+                        $writeBanner('MARKET REFERENCE');
+                        $writeBlock($this->marketReference);
+
+                        $writeBanner('Deal Background  (IN Short)');
+                        $writeBlock($this->dealBackGround);
+
+                        $writeBanner('FLEET LIST (If Applicable)');
+                        $writeHeaderRow([
+                            'Owner name & relation with applicant',
+                            'Make /Model/Veh. No.',
+                            'Free /Finance, Seasoning paid/total',
+                            'Loan Amount / Status ETR/GTR/STR/PTR',
+                        ]);
+                        $row += 2;
+                        $row++;
+
+                        $writeBanner('CIBIL JUSTIFICATION (If Applicable)');
+                        $writeHeaderRow([
+                            "App./ Co-app/ G'tor NAME",
+                            'OWNERSHIP TYPE',
+                            'DPD  & OD Amount',
+                            'Justification',
+                        ]);
+                        $row += 2;
+                    },
+                ];
+            }
+        }, 'public/Camsheet/' . $fileName);
+
+        $downloadUrl = 'https://insta.finayo.tech/storage/Camsheet/' . $fileName;
+        return $this->helper_controller->send_response('success', "File generated successfully", 200, ['download_url' => $downloadUrl]);
     }
 
-    $personalDetails[] = [
-        'col_1' => 'Current Adderess',
-        'col_2' => $borrower_single_line_address ?? '',
-        'col_3' => $coapplicant_single_line_address ?? '',
-        'col_4' => $guarantor_single_line_address ?? '',
-    ];
-    $personalDetails[] = [
-        'col_1' => 'Native Place',
-        'col_2' => '',
-        'col_3' => '',
-        'col_4' => '',
-    ];
-    $personalDetails[] = [
-        'col_1' => 'PAN Number',
-        'col_2' => $borrower_kyc->pan ?? '',
-        'col_3' => $coapplicant_kyc->pan ?? '',
-        'col_4' => $guarantor_kyc->pan ?? '',
-    ];
-    
-    $personalDetails[] = [
-        'col_1' => 'DISTANCE FROM REEYANSH DEALER OFFICE',
-        'col_2' => '',
-        'col_3' => '',
-        'col_4' => '',
-    ];
-    $personalDetails[] = [
-        'col_1' => 'FI STATUS',
-        'col_2' => '',
-        'col_3' => '',
-        'col_4' => '',
-    ];
-    $personalDetails[] = [
-        'col_1' => 'RELATION WITH APPLICANT',
-        'col_2' => 'SELF',
-        'col_3' => isset($coapplicant_kyc->relation_with_borrower) ? strtoupper($coapplicant_kyc->relation_with_borrower) : '',
-        'col_4' => isset($guarantor_kyc->relation_with_borrower) ? strtoupper($guarantor_kyc->relation_with_borrower) : '',
-    ];
 
-    $personalDetails[] = [
-        'col_1' => 'Residence since (Years)',
-        'col_2' => isset($borrower_address->years_living) ? round($borrower_address->years_living) : '',
-        'col_3' => isset($coapplicant_occupation->years_living) ? round($coapplicant_occupation->years_living) : '',
-        'col_4' => isset($guarantor_occupation->years_living) ? round($guarantor_occupation->years_living) : '',
-    ];
-
-
-    $product_details = ProductModel::where('dealer_id', $loan_basic_details->dealer->id)->where('name',  $loan_basic_details->model)->first();
-    $assetDetails[] = [
-        "col_1" => 'VEHICLE SEGMENT',
-        "col_2" => 'ELECTRONIC VEHICLE',
-        "col_3" => 'VEHICLE MODEL',
-        "col_4" => $loan_basic_details->model ?? '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'VEHICLE MANUFACTURE',
-        "col_2" => isset($product_details) ? $product_details->manufacture_name : '',
-        "col_3" => 'DLX',
-        "col_4" => isset($product_details) ? $product_details->battery_type : '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'Cost of Vehicle (Ex-Showroom Price)',
-        "col_2" => isset($product_details) ? $product_details->ex_showroom_price : '',
-        "col_3" => 'Cost of Vehicle (On-Road Price)',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'COST OF VEHICLE (On Road / Ex-showroom)',
-        "col_2" => '',
-        "col_3" => 'MFG YEAR',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'LOAN AMOUNT REQUESTED',
-        "col_2" => $loan_basic_details->loan_amount ?? '',
-        "col_3" => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'AMOUNT OF MARGIN',
-        "col_2" => '',
-        "col_3" => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'NET LOAN AMOUNT',
-        "col_2" => $loan_basic_details->loan_amount ?? '',
-        "col_3" => 'LOAN SURAKSHA AMOUNT (IF FUNDED)',
-        "col_4" => '',
-    ];
-
-    $assetDetails[] = [
-        "col_1" => 'TOTAL NET LTV %',
-        "col_2" => '',
-        "col_3" => 'LOAN SURAKSHA AMOUNT (IF FUNDED)',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'Gross Loan Amt. (Including Loan Suraksha & Insurance)',
-        "col_2" => $loan_basic_details->loan_amount ?? '',
-        "col_3" => 'IRR',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'Gross LTV % (Including Loan Suraksha & Insurance)',
-        "col_2" => '',
-        "col_3" => 'INSURANCE COMPANY NAME',
-        "col_4" => '',
-    ];
-    $assetDetails[] = [
-        "col_1" => 'LTV AS PER POLICY',
-        "col_2" => '',
-        "col_3" => 'Dealer Quotation Availbale',
-        "col_4" => '',
-    ];
-
-    $loan_amount = isset($loan_basic_details->loan_amount) ? floatval($loan_basic_details->loan_amount) : 0;
-    $loan_tenure = isset($loan_basic_details->loan_term) ? $loan_basic_details->loan_term : 0;
-    $interest_rate = isset($product_details) ? floatval($product_details->interest) : 17.5;
-
-    $emi = $this->helper_controller->calculateFlatInterestEMI($loan_amount, $interest_rate, $loan_tenure);
-    // return round($emi, 2);
-    $assetDetails[] = [
-        "col_1" => 'TENURE REQUEST (IN MONTHS)',
-        "col_2" => $loan_basic_details->loan_term ?? '',
-        "col_3" => 'FINAL EMI AMOUNT',
-        "col_4" => '',
-    ];
-    
-    $borrower_occupation = $loan_basic_details->latestBorrowerOccupation;   
-    $businessProfile[] = [
-        "col_1" => 'Nature of Work',
-        "col_2" => isset($borrower_occupation) ? $borrower_occupation->current_occupation : '',
-        "col_3" => 'Current Business Since',    
-        "col_4" => '',
-    ];
-    $businessProfile[] = [
-        "col_1" => 'Working Since',
-        "col_2" => '',
-        "col_3" => 'Agricalture land',
-        "col_4" => '',
-    ];
-    $businessProfile[] = [
-        "col_1" => 'Monthly Income',
-        "col_2" => isset($borrower_occupation) ? $borrower_occupation->monthly_earning : '',
-        "col_3" => 'Vehicle used by',
-        "col_4" => '',
-    ];
-    
-    $marketReference[] = [
-        "col_1" => 'Name of Person',
-        "col_2" => 'Address',
-        "col_3" => 'Contact No',
-        "col_4" => 'Relation with Applicant',
-    ];
-
-    $reference_details = BorrowerReferenceDetails::where('borrower_id', $loan_basic_details->id)->where('is_verified_1', true)->where('is_verified_2', true)->first();
-    
-    $marketReference[] = [
-        "col_1" => isset($reference_details) ? $reference_details->reference_1 : '',
-        "col_2" => isset($reference_details) ? $reference_details->address_1 : '',
-        "col_3" => isset($reference_details) ? $reference_details->mobile_1 : '',
-        "col_4" => isset($reference_details) ? $reference_details->relation_1 : '',
-    ];
-
-    $marketReference[] = [
-        "col_1" => isset($reference_details) ? $reference_details->reference_2 : '',
-        "col_2" => isset($reference_details) ? $reference_details->address_2 : '',
-        "col_3" => isset($reference_details) ? $reference_details->mobile_2 : '',
-        "col_4" => isset($reference_details) ? $reference_details->relation_2 : '',
-    ];
-
-    $dealBackGround[] = [
-        "col_1" => 'Applicant Profile',
-        "col_2" => '',
-        "col_3" => '',
-        "col_4" => '',
-    ];
-    
-    $dealBackGround[] = [
-        "col_1" => 'Co applicant Profile',
-        "col_2" => '',
-        "col_3" => '',
-        "col_4" => '',
-    ];
-    $dealBackGround[] = [
-        "col_1" => 'Guarantor Profile',
-        "col_2" => '',
-        "col_3" => '',
-        "col_4" => '',
-    ];
-
-
-    // return $personalDetails;
-
-    // Define the Excel file name
-    $fileName = 'Sourcing_Details_' . $borrower_id . '.xlsx';
-    
-    // Store the Excel file in the storage
-    Excel::store(new class($sourcingData, $personalDetails, $assetDetails, $businessProfile, $marketReference, $dealBackGround) implements \Maatwebsite\Excel\Concerns\WithEvents {
-        protected $sourcingData;
-        protected $personalDetails;
-        protected $assetDetails;
-        protected $businessProfile;
-        protected $marketReference;
-        protected $dealBackGround;
-
-        public function __construct(array $sourcingData, array $personalDetails, array $assetDetails, array $businessProfile, array $marketReference, array $dealBackGround)
-        {
-            $this->sourcingData = $sourcingData;
-            $this->personalDetails = $personalDetails;
-            $this->assetDetails = $assetDetails;
-            $this->businessProfile = $businessProfile;
-            $this->marketReference = $marketReference;
-            $this->dealBackGround = $dealBackGround;
+    public function cam_sheet_doc_test($borrower_id)
+    {
+        if (!isset($borrower_id) || empty($borrower_id)) {
+            return $this->helper_controller->send_response('failed', "Borrower id is required", 422);
         }
 
-        public function registerEvents(): array
-        {
-            return [
-                \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
-                    $sheet = $event->sheet->getDelegate();
+        $loan_basic_details = LoanBasicDetails::with([
+            'dealer.beneficiaryDetails',
+            'latestBorrowerKyc',
+            'latestBorrowerAddress',
+            'latestBorrowerOccupation',
+            'latestCoapplicantKyc',
+            'latestCoapplicantOccupation',
+            'latestGuarantor',
+            'latestGuarantorOccupation',
+            'latestLoanScheme',
+            'latestCreditSummary',
+        ])->where('borrower_id', $borrower_id)->first();
 
-                    // Auto-size columns
-                    foreach (range('A', 'D') as $column) {
-                        $sheet->getColumnDimension($column)->setAutoSize(true);
-                    }
-                    
-                    // Set title and format
-                    $sheet->mergeCells('A1:D1');
-                    $sheet->setCellValue('A1', 'SOURCING DETAIL');
-                    $sheet->getStyle('A1')->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-
-                    // Fill data
-                    $row = 2;
-                    foreach ($this->sourcingData as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'PERSONAL DETAIL');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    
-                    $row++;
-                    
-                    $sheet->setCellValue('A' . $row, "PARTICULAR");
-                    $sheet->setCellValue('B' . $row, "APPLICANT");
-                    $sheet->setCellValue('C' . $row, "CO-APPLICANT");
-                    $sheet->setCellValue('D' . $row, "GAURANTOR");
-                    $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-
-                    $row++;
-                    foreach ($this->personalDetails as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'FINANCE & ASSET DETAIL (New Vehicle)');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-
-                    $row++;
-
-                    foreach ($this->assetDetails as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'BUSINESS PROFILE');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-
-                    $row++;
-                    
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'SELF EMPLOYED - Professional or Non Professional');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-
-                    $row++;
-                    foreach ($this->businessProfile as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-                    
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'MARKET REFERENCE');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    
-                    $row++;
-                    foreach ($this->marketReference as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'Deal Background  (IN Short)');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    
-                    $row++;
-                    foreach ($this->dealBackGround as $item) {
-                        $sheet->setCellValue('A' . $row, $item['col_1']);
-                        $sheet->setCellValue('B' . $row, $item['col_2']);
-                        $sheet->setCellValue('C' . $row, $item['col_3']);
-                        $sheet->setCellValue('D' . $row, $item['col_4']);
-                        $row++;
-                    }
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'FLEET LIST (If Applicable)');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    
-                    $row++;
-                    
-                    $sheet->setCellValue('A' . $row, "Owner name & relation with applicant");
-                    $sheet->setCellValue('B' . $row, "Make /Model/Veh. No.");
-                    $sheet->setCellValue('C' . $row, "Free /Finance, Seasoning paid/total");
-                    $sheet->setCellValue('D' . $row, "Loan Amount / Status ETR/GTR/STR/PTR");
-                    $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    $row++;
-                    for($i=0; $i<2; $i++) {
-
-                        $sheet->setCellValue('A' . $row, '');
-                        $sheet->setCellValue('B' . $row, '');
-                        $sheet->setCellValue('C' . $row, '');
-                        $sheet->setCellValue('D' . $row, '');
-                        $row++;
-                    }
-                    
-                    $row++;
-
-                    $sheet->mergeCells('A'.$row.':D'.$row);
-                    $sheet->setCellValue('A'.$row, 'CIBIL JUSTIFICATION (If Applicable)');
-                    $sheet->getStyle('A'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    
-                    $row++;
-                    
-                    $sheet->setCellValue('A' . $row, "App./ Co-app/ G'tor NAME");
-                    $sheet->setCellValue('B' . $row, "OWNERSHIP TYPE");
-                    $sheet->setCellValue('C' . $row, "DPD  & OD Amount");
-                    $sheet->setCellValue('D' . $row, "Justification");
-                    $sheet->getStyle('A'.$row.':D'.$row)->applyFromArray([
-                        'font' => [
-                            'bold' => true,
-                        ],
-                        'alignment' => [
-                            'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,
-                        ],
-                    ]);
-                    $row++;
-                    for($i=0; $i<2; $i++) {
-
-                        $sheet->setCellValue('A' . $row, '');
-                        $sheet->setCellValue('B' . $row, '');
-                        $sheet->setCellValue('C' . $row, '');
-                        $sheet->setCellValue('D' . $row, '');
-                        $row++;
-                    }
-                },
-            ];
+        if (!$loan_basic_details) {
+            return $this->helper_controller->send_response('failed', "Invalid borrower id", 422);
         }
-    }, 'public/Camsheet/' . $fileName);
 
-    // Return the download URL
-    // $downloadUrl = Storage::url('Camsheet/'.$fileName);
-    // $downloadUrl = 'storage/Camsheet/'.$fileName;
-    $downloadUrl = 'http://13.200.65.87/storage/Camsheet/'.$fileName;
-    return $this->helper_controller->send_response('success', "File generated successfully", 200, ['download_url' => $downloadUrl]);
-}
+        date_default_timezone_set('Asia/Kolkata');
+        $date = date('d-m-Y');
+
+        $loanScheme        = $loan_basic_details->latestLoanScheme;
+        $dealer            = $loan_basic_details->dealer;
+        $beneficiary       = $dealer->beneficiaryDetails ?? null;
+
+        $borrower_kyc      = $loan_basic_details->latestBorrowerKyc;
+        $coapplicant_kyc   = $loan_basic_details->latestCoapplicantKyc;
+        $guarantor_kyc     = $loan_basic_details->latestGuarantor;
+
+        $has_coapplicant   = (bool) $coapplicant_kyc;
+        $has_guarantor     = (bool) $guarantor_kyc;
+
+        $loan_tenure       = (int) ($loan_basic_details->loan_term ?? 0);
+
+        // ---------- helpers ----------
+        $ageAsOn = function (?string $dob, int $addMonths = 0) {
+            if (empty($dob)) return '';
+            try {
+                return Carbon::parse($dob)->diffInYears(Carbon::now()->addMonths($addMonths));
+            } catch (\Throwable $e) {
+                return '';
+            }
+        };
+
+        // ---------- SOURCING ----------
+        $sourcingData = [];
+        $sourcingData[] = ['col_1' => 'PREPARE DATE', 'col_2' => $date, 'col_3' => 'PREPARED BY (CREDIT MANAGER & ID)', 'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'STATE NAME',   'col_2' => '',    'col_3' => 'SOURCING THROUGH (DEALER NAME)',    'col_4' => $dealer->name ?? ''];
+        $sourcingData[] = ['col_1' => 'BRANCH NAME',  'col_2' => 'DELHI', 'col_3' => 'DEALER EXECUTIVE',                'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'PRODUCT TYPE', 'col_2' => 'EV',  'col_3' => 'DST NAME',                          'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'APPLICATION NO', 'col_2' => $loan_basic_details->borrower_id ?? '', 'col_3' => 'CHECKED BY CM /OPS @ FINAYO', 'col_4' => ''];
+        $sourcingData[] = ['col_1' => 'DEALER BANK ACCOUNT NUMBER', 'col_2' => $beneficiary->account_number ?? '', 'col_3' => 'IFSC', 'col_4' => $beneficiary->ifsc_code ?? ''];
+        $sourcingData[] = ['col_1' => 'BANK NAME', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+
+        // ---------- PERSONAL ----------
+        $personalDetails = [];
+        $personalDetails[] = [
+            'col_1' => 'NAME',
+            'col_2' => $borrower_kyc->name ?? '',
+            'col_3' => $coapplicant_kyc->name ?? '',
+            'col_4' => $guarantor_kyc->name ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'FATHER/SPOUSE NAME',
+            'col_2' => $borrower_kyc->father_name ?? $borrower_kyc->husband_name ?? '',
+            'col_3' => $coapplicant_kyc->father_name ?? $coapplicant_kyc->husband_name ?? '',
+            'col_4' => $guarantor_kyc->father_name ?? $guarantor_kyc->husband_name ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'GENDER',
+            'col_2' => $borrower_kyc->gender ?? '',
+            'col_3' => $coapplicant_kyc->gender ?? '',
+            'col_4' => $guarantor_kyc->gender ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'CONTACT NO',
+            'col_2' => $borrower_kyc->mobile ?? '',
+            'col_3' => $coapplicant_kyc->mobile ?? '',
+            'col_4' => $guarantor_kyc->mobile ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'DOB (DD/MM/YY)',
+            'col_2' => !empty($borrower_kyc->dob_date) ? date('d-M-Y', strtotime($borrower_kyc->dob_date)) : '',
+            'col_3' => !empty($coapplicant_kyc->dob_date) ? date('d-M-Y', strtotime($coapplicant_kyc->dob_date)) : '',
+            'col_4' => !empty($guarantor_kyc->dob_date) ? date('d-M-Y', strtotime($guarantor_kyc->dob_date)) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Age as on date',
+            'col_2' => $ageAsOn($borrower_kyc->dob_date ?? null),
+            'col_3' => $has_coapplicant ? $ageAsOn($coapplicant_kyc->dob_date ?? null) : '',
+            'col_4' => $has_guarantor ? $ageAsOn($guarantor_kyc->dob_date ?? null) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Age EOT',
+            'col_2' => $ageAsOn($borrower_kyc->dob_date ?? null, $loan_tenure),
+            'col_3' => $has_coapplicant ? $ageAsOn($coapplicant_kyc->dob_date ?? null, $loan_tenure) : '',
+            'col_4' => $has_guarantor ? $ageAsOn($guarantor_kyc->dob_date ?? null, $loan_tenure) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'MARITAL STATUS',
+            'col_2' => $borrower_kyc->marital_status ?? '',
+            'col_3' => $coapplicant_kyc->marital_status ?? '',
+            'col_4' => $guarantor_kyc->marital_status ?? '',
+        ];
+
+        // ---------- CIBIL ----------
+        $credit_summary = $loan_basic_details->latestCreditSummary;
+
+        $cibil = fn($score) => (empty($score) || (float) $score == 0) ? 'NTC' : $score;
+
+        $personalDetails[] = [
+            'col_1' => 'CIBIL SCORE',
+            'col_2' => $cibil($credit_summary->cibil_score ?? null),
+            'col_3' => $has_coapplicant ? $cibil($credit_summary->coappli_cibil_score ?? null) : '',
+            'col_4' => $has_guarantor ? $cibil($credit_summary->guarantor_cibil_score ?? null) : '',
+        ];
+
+        $borrower_address       = $loan_basic_details->latestBorrowerAddress;
+        $coapplicant_occupation = $loan_basic_details->latestCoapplicantOccupation;
+        $guarantor_occupation   = $loan_basic_details->latestGuarantorOccupation;
+
+        $personalDetails[] = [
+            'col_1' => 'RESIDENCE TYPE',
+            'col_2' => $borrower_address->resident_type ?? '',
+            'col_3' => $coapplicant_occupation->resident_type ?? '',
+            'col_4' => $guarantor_occupation->resident_type ?? '',
+        ];
+
+        $borrower_single_line_address    = $borrower_address ? strtoupper(trim($borrower_address->current_address, ', ')) : '';
+        $guarantor_single_line_address   = $guarantor_occupation ? strtoupper(trim($guarantor_occupation->current_address, ', ')) : '';
+        $coapplicant_single_line_address = $coapplicant_occupation ? strtoupper(trim($coapplicant_occupation->current_address, ', ')) : '';
+
+        $personalDetails[] = [
+            'col_1' => 'Current Adderess',
+            'col_2' => $borrower_single_line_address,
+            'col_3' => $coapplicant_single_line_address,
+            'col_4' => $guarantor_single_line_address,
+        ];
+        $personalDetails[] = [
+            'col_1' => 'EMAIL ID',
+            'col_2' => $borrower_kyc->email ?? '',
+            'col_3' => $coapplicant_kyc->email ?? '',
+            'col_4' => $guarantor_kyc->email ?? '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'PAN Number',
+            'col_2' => $borrower_kyc->pan ?? '',
+            'col_3' => $coapplicant_kyc->pan ?? '',
+            'col_4' => $guarantor_kyc->pan ?? '',
+        ];
+
+        // ---------- FIELD INSPECTION ----------
+        $field_inspection = FieldInspectionDetails::where('borrower_id', $loan_basic_details->id)
+            ->latest('id')->first();
+
+        $personalDetails[] = [
+            'col_1' => 'DISTANCE FROM DEALER OFFICE',
+            'col_2' => $field_inspection->distance ?? '',
+            'col_3' => '',
+            'col_4' => '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'FI STATUS',
+            'col_2' => $field_inspection ? ($field_inspection->is_inspection_verified ? 'Approved' : 'Not Approved') : '',
+            'col_3' => '',
+            'col_4' => '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'RELATION WITH APPLICANT',
+            'col_2' => 'SELF',
+            'col_3' => isset($coapplicant_kyc->relation_with_borrower) ? strtoupper($coapplicant_kyc->relation_with_borrower) : '',
+            'col_4' => isset($guarantor_kyc->relation_with_borrower) ? strtoupper($guarantor_kyc->relation_with_borrower) : '',
+        ];
+        $personalDetails[] = [
+            'col_1' => 'Residence since (Years)',
+            'col_2' => isset($borrower_address->years_living) ? round($borrower_address->years_living) : '',
+            'col_3' => isset($coapplicant_occupation->years_living) ? round($coapplicant_occupation->years_living) : '',
+            'col_4' => isset($guarantor_occupation->years_living) ? round($guarantor_occupation->years_living) : '',
+        ];
+
+        // ---------- PRODUCT RESOLUTION (name + manufacturer only) ----------
+        $oem_product    = null;
+        $legacy_product = null;
+
+        if (!empty($loan_basic_details->model_id)) {
+            $oem_product = OemDynamicProduct::with('oem')
+                ->where('oem_product_unq', $loan_basic_details->model_id)->first();
+
+            if (!$oem_product) {
+                $legacy_product = ProductModel::where('model_unq', $loan_basic_details->model_id)->first();
+            }
+        }
+
+        if (!$oem_product && !$legacy_product && !empty($loanScheme?->product_id)) {
+            $oem_product = OemDynamicProduct::with('oem')->find($loanScheme->product_id);
+            if (!$oem_product) {
+                $legacy_product = ProductModel::find($loanScheme->product_id);
+            }
+        }
+
+        $product_name     = $oem_product->product_name ?? $legacy_product->name ?? $loan_basic_details->model ?? '';
+        $manufacture_name = $oem_product?->oem?->manufacturer ?? $legacy_product->manufacture_name ?? '';
+        $battery_type     = $oem_product->battery_type ?? $legacy_product->battery_type ?? '';
+
+        // ---------- SCHEME-DRIVEN FINANCIALS ----------
+        $ex_showroom_price = $loanScheme->ex_showroom_price ?? '';
+        $ltv_ratio         = $loanScheme->loan_to_value_ratio ?? '';
+        $interest_rate     = (float) ($loanScheme->interest ?? 0);
+        $interest_type     = $loanScheme->interest_type ?? 'flat';
+        $loan_amount       = (float) ($loanScheme->loan_amount ?? $loan_basic_details->loan_amount ?? 0);
+        $down_payment      = $loan_basic_details->down_payment ?? '';
+
+        // $emi = ($loan_amount > 0 && $loan_tenure > 0)
+        //     ? $this->getEmiAmount($loan_amount, $interest_rate, $loan_tenure, $interest_type)
+        //     : '';
+
+        // ---------- FOIR CALCULATION (Product-wise earning based) ----------
+        
+        $emi = ($loan_amount > 0 && $loan_tenure > 0)
+            ? $this->getEmiAmount($loan_amount, $interest_rate, $loan_tenure, $interest_type)
+            : '';
+
+        // ---------- FERA CALCULATION (Product-wise earning based) ----------
+        $emi_value        = is_numeric($emi) ? (float) $emi : 0;
+        $product_id       = $loanScheme->product_id ?? null;
+        $sub_product_name = strtoupper($product_name ?? '');
+
+        $rate_min = 0; $rate_max = 0;
+        $km_min   = 0; $km_max   = 0;
+        $days     = 25;      // working days/month
+        $min_foir = 50;      // minimum Net FERA %
+
+        if ($product_id == 1) {
+            // L3 — E-Rickshaw / EV Three Wheeler
+            $rate_min = 7;  $rate_max = 12;
+            $km_min   = 75; $km_max   = 100;
+        } elseif ($product_id == 2) {
+            // L5 — E-Auto family
+            $rate_min = 12; $rate_max = 18;
+            $km_min   = 75; $km_max   = 120;
+        }
+
+        // 6S override (EKA L5-6S)
+        if (str_contains($sub_product_name, '6S')) {
+            $rate_min = 15; $rate_max = 20;
+            $km_min   = 100; $km_max  = 130;
+        }
+
+        // L5 Lite override
+        if (str_contains($sub_product_name, 'L5 LITE') || str_contains($sub_product_name, 'L5-LITE')) {
+            $rate_min = 7;  $rate_max = 12;
+            $km_min   = 75; $km_max   = 100;
+        }
+
+        // Income range calculation
+        $income_per_month_min = ($rate_min * $km_min) * $days;
+        $income_per_month_max = ($rate_max * $km_max) * $days;
+
+        // Net FERA %
+        $net_foir_min = ($emi_value > 0 && $income_per_month_min > 0)
+            ? round(($income_per_month_min / $emi_value) * 100, 2) : 0;
+        $net_foir_max = ($emi_value > 0 && $income_per_month_max > 0)
+            ? round(($income_per_month_max / $emi_value) * 100, 2) : 0;
+
+        $is_foir_eligible = $net_foir_min >= $min_foir;
+
+        // Display strings
+        $income_range_display = ($income_per_month_max > 0)
+            ? number_format($income_per_month_min) . ' - ' . number_format($income_per_month_max)
+            : '';
+
+        $foir_range_display = ($net_foir_max > 0)
+            ? $net_foir_min . '% - ' . $net_foir_max . '%'
+            : '';
+
+        // ---------- ASSET ----------
+        $assetDetails = [];
+        $assetDetails[] = ['col_1' => 'VEHICLE SEGMENT', 'col_2' => 'ELECTRONIC VEHICLE', 'col_3' => 'VEHICLE MODEL', 'col_4' => $product_name];
+        $assetDetails[] = ['col_1' => 'VEHICLE MANUFACTURE', 'col_2' => $manufacture_name, 'col_3' => 'DLX', 'col_4' => $battery_type];
+        $assetDetails[] = ['col_1' => 'Cost of Vehicle (Ex-Showroom Price)', 'col_2' => $ex_showroom_price, 'col_3' => 'Cost of Vehicle (On-Road Price)', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'COST OF VEHICLE (On Road / Ex-showroom)', 'col_2' => $ex_showroom_price, 'col_3' => 'MFG YEAR', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'LOAN AMOUNT REQUESTED', 'col_2' => $loan_amount, 'col_3' => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'AMOUNT OF MARGIN (Down Payment)', 'col_2' => $down_payment, 'col_3' => 'VEHICLE INSURANCE AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'NET LOAN AMOUNT', 'col_2' => $loan_amount, 'col_3' => 'LOAN SURAKSHA AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'TOTAL NET LTV %', 'col_2' => $ltv_ratio, 'col_3' => 'LOAN SURAKSHA AMOUNT (IF FUNDED)', 'col_4' => 'NA.'];
+        $assetDetails[] = ['col_1' => 'Gross Loan Amt. (Including Loan Suraksha & Insurance)', 'col_2' => 'NA.', 'col_3' => 'IRR', 'col_4' => $interest_rate];
+        $assetDetails[] = ['col_1' => 'Gross LTV % (Including Loan Suraksha & Insurance)', 'col_2' => 'NA.', 'col_3' => 'INSURANCE COMPANY NAME', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'LTV AS PER POLICY', 'col_2' => $ltv_ratio, 'col_3' => 'Dealer Quotation Availbale', 'col_4' => ''];
+        $assetDetails[] = ['col_1' => 'TENURE REQUEST (IN MONTHS)', 'col_2' => $loan_tenure, 'col_3' => 'FINAL EMI AMOUNT', 'col_4' => $emi];
+
+        // ---------- BUSINESS PROFILE ----------
+        $borrower_occupation = $loan_basic_details->latestBorrowerOccupation;
+        $businessProfile = [];
+        $businessProfile[] = ['col_1' => 'Nature of Work', 'col_2' => $borrower_occupation->current_occupation ?? '', 'col_3' => 'Current Business Since', 'col_4' => ''];
+        $businessProfile[] = ['col_1' => 'Working Since', 'col_2' => '', 'col_3' => 'Agricalture land', 'col_4' => ''];
+        // $businessProfile[] = ['col_1' => 'Monthly Income', 'col_2' => $borrower_occupation->monthly_earning ?? '', 'col_3' => 'Vehicle used by', 'col_4' => ''];
+        $businessProfile[] = ['col_1' => 'Monthly Income', 'col_2' => $borrower_occupation->monthly_earning ?? '', 'col_3' => 'Vehicle used by', 'col_4' => 'SELF'];
+        $businessProfile[] = [
+            'col_1' => 'Expected Monthly Income',
+            'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+            'col_3' => 'FOIR',
+            'col_4' => is_numeric($emi) ? $emi * 2 : '',
+        ];
+
+        $businessProfile[] = [
+            'col_1' => 'Expected Monthly Income',
+            'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+            'col_3' => 'FERA (Future Earning & Repayment Analysis)',
+            'col_4' => $income_range_display,      // e.g. "22500 - 54000"
+        ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'Assessed Net Income (Min-Max)',
+        //     'col_2' => $income_range_display,
+        //     'col_3' => 'Net FOIR %',
+        //     'col_4' => $foir_range_display,        // e.g. "642.86% - 1542.86%"
+        // ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'FOIR Eligibility (≥50%)',
+        //     'col_2' => $is_foir_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE',
+        //     'col_3' => 'Assumption',
+        //     'col_4' => "Rate ₹{$rate_min}-{$rate_max}/km × {$km_min}-{$km_max} km/day × {$days} days",
+        // ];
+
+        // ---------- REFERENCES ----------
+        $marketReference = [];
+        $marketReference[] = ['col_1' => 'Name of Person', 'col_2' => 'Address', 'col_3' => 'Contact No', 'col_4' => 'Relation with Applicant'];
+
+        $reference_details = BorrowerReferenceDetails::where('borrower_id', $loan_basic_details->id)
+            ->where('is_verified_1', true)->where('is_verified_2', true)->first();
+
+        $marketReference[] = [
+            'col_1' => $reference_details->reference_1 ?? '',
+            'col_2' => $reference_details->address_1 ?? '',
+            'col_3' => $reference_details->mobile_1 ?? '',
+            'col_4' => $reference_details->relation_1 ?? '',
+        ];
+        $marketReference[] = [
+            'col_1' => $reference_details->reference_2 ?? '',
+            'col_2' => $reference_details->address_2 ?? '',
+            'col_3' => $reference_details->mobile_2 ?? '',
+            'col_4' => $reference_details->relation_2 ?? '',
+        ];
+
+        // ---------- DEAL BACKGROUND ----------
+        $dealBackGround = [];
+        $dealBackGround[] = ['col_1' => 'Applicant Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        if ($has_coapplicant) {
+            $dealBackGround[] = ['col_1' => 'Co applicant Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        }
+        if ($has_guarantor) {
+            $dealBackGround[] = ['col_1' => 'Guarantor Profile', 'col_2' => '', 'col_3' => '', 'col_4' => ''];
+        }
+
+        $fileName = 'Sourcing_Details_' . $borrower_id . '.xlsx';
+
+        Excel::store(new class($sourcingData, $personalDetails, $assetDetails, $businessProfile, $marketReference, $dealBackGround) implements \Maatwebsite\Excel\Concerns\WithEvents {
+            protected $sourcingData;
+            protected $personalDetails;
+            protected $assetDetails;
+            protected $businessProfile;
+            protected $marketReference;
+            protected $dealBackGround;
+
+            public function __construct(array $sourcingData, array $personalDetails, array $assetDetails, array $businessProfile, array $marketReference, array $dealBackGround)
+            {
+                $this->sourcingData    = $sourcingData;
+                $this->personalDetails = $personalDetails;
+                $this->assetDetails    = $assetDetails;
+                $this->businessProfile = $businessProfile;
+                $this->marketReference = $marketReference;
+                $this->dealBackGround  = $dealBackGround;
+            }
+
+            public function registerEvents(): array
+            {
+                return [
+                    \Maatwebsite\Excel\Events\AfterSheet::class => function (\Maatwebsite\Excel\Events\AfterSheet $event) {
+                        $sheet = $event->sheet->getDelegate();
+
+                        $headerStyle = [
+                            'font'      => ['bold' => true],
+                            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+                        ];
+
+                        foreach (range('A', 'D') as $column) {
+                            $sheet->getColumnDimension($column)->setAutoSize(true);
+                        }
+
+                        $row = 1;
+
+                        $writeBanner = function (string $text) use ($sheet, &$row, $headerStyle) {
+                            $sheet->mergeCells('A' . $row . ':D' . $row);
+                            $sheet->setCellValue('A' . $row, $text);
+                            $sheet->getStyle('A' . $row)->applyFromArray($headerStyle);
+                            $row++;
+                        };
+
+                        $writeHeaderRow = function (array $cols) use ($sheet, &$row, $headerStyle) {
+                            $sheet->setCellValue('A' . $row, $cols[0]);
+                            $sheet->setCellValue('B' . $row, $cols[1]);
+                            $sheet->setCellValue('C' . $row, $cols[2]);
+                            $sheet->setCellValue('D' . $row, $cols[3]);
+                            $sheet->getStyle('A' . $row . ':D' . $row)->applyFromArray($headerStyle);
+                            $row++;
+                        };
+
+                        $writeBlock = function (array $data) use ($sheet, &$row) {
+                            foreach ($data as $item) {
+                                $sheet->setCellValue('A' . $row, $item['col_1']);
+                                $sheet->setCellValue('B' . $row, $item['col_2']);
+                                $sheet->setCellValue('C' . $row, $item['col_3']);
+                                $sheet->setCellValue('D' . $row, $item['col_4']);
+                                $row++;
+                            }
+                        };
+
+                        $writeBanner('SOURCING DETAIL');
+                        $writeBlock($this->sourcingData);
+
+                        $writeBanner('PERSONAL DETAIL');
+                        $writeHeaderRow(['PARTICULAR', 'APPLICANT', 'CO-APPLICANT', 'GAURANTOR']);
+                        $writeBlock($this->personalDetails);
+
+                        $writeBanner('FINANCE & ASSET DETAIL (New Vehicle)');
+                        $writeBlock($this->assetDetails);
+
+                        $writeBanner('BUSINESS PROFILE');
+                        $writeBanner('SELF EMPLOYED - Professional or Non Professional');
+                        $writeBlock($this->businessProfile);
+
+                        $writeBanner('MARKET REFERENCE');
+                        $writeBlock($this->marketReference);
+
+                        $writeBanner('Deal Background  (IN Short)');
+                        $writeBlock($this->dealBackGround);
+
+                        $writeBanner('FLEET LIST (If Applicable)');
+                        $writeHeaderRow([
+                            'Owner name & relation with applicant',
+                            'Make /Model/Veh. No.',
+                            'Free /Finance, Seasoning paid/total',
+                            'Loan Amount / Status ETR/GTR/STR/PTR',
+                        ]);
+                        $row += 2;
+                        $row++;
+
+                        $writeBanner('CIBIL JUSTIFICATION (If Applicable)');
+                        $writeHeaderRow([
+                            "App./ Co-app/ G'tor NAME",
+                            'OWNERSHIP TYPE',
+                            'DPD  & OD Amount',
+                            'Justification',
+                        ]);
+                        $row += 2;
+                    },
+                ];
+            }
+        }, 'public/Camsheet/' . $fileName);
+
+        $downloadUrl = 'https://insta.finayo.tech/storage/Camsheet/' . $fileName;
+        return $this->helper_controller->send_response('success', "File generated successfully", 200, ['download_url' => $downloadUrl]);
+    }
 
     public function get_borrower_iot_details($borrower_id = null) {
         try {

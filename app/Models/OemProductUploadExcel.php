@@ -19,5 +19,6 @@ class OemProductUploadExcel extends Model
         'updated_by',
         'errors',
         'file_path',
+        'approve_multi',
     ];
 }
