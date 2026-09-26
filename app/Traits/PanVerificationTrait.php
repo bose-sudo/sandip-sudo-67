@@ -152,6 +152,37 @@ trait PanVerificationTrait
         }
 
         // =====================================================================
+        // 4.1 PRODUCT APPROVE_MULTI VALIDATION (NEW)
+        //      Active loan - product এর approve_multi check
+        // =====================================================================
+        $loan_details_for_product = LoanBasicDetails::find($borrower_id);
+
+        if ($loan_details_for_product) {
+            // Active loan আছে কিনা check (CLOSED, REJECTED, CANCELLED বাদ)
+            $has_active_loan = !in_array($loan_details_for_product->status, [
+                'CLOSED', 'REJECTED', 'CANCELLED'
+            ]);
+
+            if ($has_active_loan) {
+                $product_id = $loan_details_for_product->product_id;
+                $product    = null;
+
+                if (!empty($product_id)) {
+                    $product = \App\Models\ProductModel::find($product_id)
+                        ?? \App\Models\OemDynamicProduct::find($product_id);
+                }
+
+                if (!$product || !$product->approve_multi) {
+                    return $this->send_response(
+                        'failed',
+                        'This product is not available for loan application. Please contact support.',
+                        422
+                    );
+                }
+            }
+        }
+
+        // =====================================================================
         // 5. CACHE CHECK — reuse existing VALID record for this PAN
         //    Uses: single index on api_flag + composite index (doc_id, date_time)
         //

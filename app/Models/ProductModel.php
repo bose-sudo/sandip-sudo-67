@@ -44,6 +44,11 @@ class ProductModel extends Model
         'approve_multi',
     ];
 
+    // ProductModel.php
+    protected $casts = [
+        'approve_multi' => 'boolean',
+    ];
+
     public function dealer()
     {
         return $this->belongsTo(Dealer::class, 'dealer_id', 'id');
