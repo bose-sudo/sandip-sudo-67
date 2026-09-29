@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Loan;
 
 use App\Models\{
+    User,
     LoanBasicDetails,
     LoanApplicationSummary,
     BorrowerLoanScheme,
@@ -54,8 +55,32 @@ final class LoanBasicDetailsService
         try {
             date_default_timezone_set('Asia/Kolkata');
 
-            if (LoanBasicDetails::where('user_id', $userId)->exists()) {
+            // if (LoanBasicDetails::where('user_id', $userId)->exists()) {
+            //     return $this->fail('An application already exists');
+            // }
+
+            $user = User::find($userId);
+
+            // if (!$user) {
+            //     return $this->fail('Invalid user');
+            // }
+
+            // if (!$user->approve_multi && LoanBasicDetails::where('user_id', $userId)->exists()) {
+            //     return $this->fail('An application already exists');
+            // }
+
+            if (!$user) {
+                return $this->fail('Invalid user');
+            }
+
+            $applicationCount = LoanBasicDetails::where('user_id', $userId)->count();
+
+            if (!$user->approve_multi && $applicationCount >= 1) {
                 return $this->fail('An application already exists');
+            }
+
+            if ($user->approve_multi && $applicationCount >= 3) {
+                return $this->fail('Maximum 3 loan applications are allowed');
             }
 
             $dealer = Dealer::where('dealer_unq', $request->dealer_id)->first();
