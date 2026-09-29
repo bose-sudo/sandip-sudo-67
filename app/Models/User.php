@@ -29,6 +29,7 @@ class User extends Authenticatable implements JWTSubject
         'step_no',
         'email_confirmation_code',
         'executive_id',
+        'approve_multi',
     ];
 
     /**

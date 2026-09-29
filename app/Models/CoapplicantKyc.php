@@ -35,6 +35,7 @@ class CoapplicantKyc extends Model
         "created_by",
         "updated_by",
         "deleted_at",
+        "borrower_id",
     ];
 
     public function loanBasicDetails()

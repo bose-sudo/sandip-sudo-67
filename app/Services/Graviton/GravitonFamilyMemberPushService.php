@@ -40,12 +40,20 @@ class GravitonFamilyMemberPushService
                 throw new \Exception("Borrower {$borrower->id} has no graviton_client_id");
             }
 
+            // if ($role === 'coapplicant') {
+            //     $person     = CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->latest()->first();
+            //     $occupation = CoapplicantOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
+            // } else {
+            //     $person     = Guarantor::where('borrower_id', $borrower->borrower_id)->latest()->first();
+            //     $occupation = GuarantorOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
+            // }
+
             if ($role === 'coapplicant') {
-                $person     = CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->latest()->first();
-                $occupation = CoapplicantOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
+                $person     = CoapplicantKyc::where('borrower_id', $borrower->id)->latest()->first();
+                $occupation = CoapplicantOccupation::where('borrower_id', $borrower->id)->latest()->first();
             } else {
-                $person     = Guarantor::where('borrower_id', $borrower->borrower_id)->latest()->first();
-                $occupation = GuarantorOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
+                $person     = Guarantor::where('borrower_id', $borrower->id)->latest()->first();
+                $occupation = GuarantorOccupation::where('borrower_id', $borrower->id)->latest()->first();
             }
 
             if (!$person) {

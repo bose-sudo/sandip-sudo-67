@@ -7,11 +7,18 @@ use App\Http\Controllers\HelperController;
 use App\Models\ApkVersion;
 use App\Models\BatteryTypes;
 use App\Models\Dealer;
+use App\Models\LoanBasicDetails;
+use App\Models\Lenders;
+use App\Models\LenderDirectors;
+use App\Models\LenderDealerGroup;
 use App\Models\LenderProductCharges;
 use App\Models\Manufacturers;
 use App\Models\ProductModel;
 use App\Models\ProductTypes;
 use App\Models\ProductUploadExcel;
+use App\Services\BorrowerVisibilityService;
+use App\Services\FileStorageService;
+use App\Traits\ApiResponse;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
@@ -23,14 +30,69 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ProductController extends Controller
 {
-    private $helper_controller;
-    public function __construct(HelperController $helper_controller)
+
+    use ApiResponse;
+    // private $helper_controller;
+    public function __construct(
+        private readonly HelperController        $helper_controller,
+        private readonly BorrowerVisibilityService $visibilityService,
+        private readonly FileStorageService $fileStorage,
+    ) {}
+    // private $helper_controller;
+    // public function __construct(HelperController $helper_controller) {
+    //     $this->helper_controller = $helper_controller;
+    // }
+
+    /**
+     * @return array{0: \Illuminate\Support\Collection|null, 1: bool}
+     *         [dealerIds (dealers.id) — null = all dealers, emptyResult]
+     */
+    private function resolveVisibleDealerIds(int $authId): array
     {
-        $this->helper_controller = $helper_controller;
+        // 1. Dealer auth → self only
+        $dealerAuth = Dealer::where('dealer_auth_id', $authId)->first();
+        if ($dealerAuth) {
+            return [collect([$dealerAuth->id]), false];
+        }
+
+        // 2. Lender or lender executive
+        $lender = Lenders::where('lender_auth_id', $authId)->where('is_active', true)->first();
+        if (!$lender) {
+            $lenderExecutive = LenderDirectors::where('auth_id', $authId)->where('status', 'active')->first();
+            if ($lenderExecutive) {
+                $lender = (object) ['id' => $lenderExecutive->lender_id];
+            }
+        }
+        if ($lender) {
+            $dealerIds = LenderDealerGroup::where('lender_id', $lender->id)
+                ->where('status', 'A')
+                ->pluck('dealer_id');
+
+            return $dealerIds->isEmpty()
+                ? [null, false, true]
+                : [$dealerIds, false, false];
+        }
+
+        // 3. Admin / all-access
+        $user = auth()->user();
+        if ($user->user_type === 36 || $user->is_all_borrower_accessible) {
+            return [null, true, false];
+        }
+
+        // 4. Scoped admin via visibility service (dealer_unq → dealers.id)
+        $visibleDealerUnqs = $this->visibilityService->resolveVisibleDealerUnqs($authId);
+        if ($visibleDealerUnqs->isEmpty()) {
+            return [null, true, true];
+        }
+
+        $dealerIds = Dealer::whereIn('dealer_unq', $visibleDealerUnqs)
+        ->where('is_deleted', false)
+        ->pluck('id');
+
+        return $dealerIds->isEmpty() ? [null, true] : [$dealerIds, false];
     }
 
-    public function get_product_list_old(Request $request)
-    {
+    public function get_product_list_old(Request $request) {
         $userAgent = $request->header('User-Agent');
         $appVersion = $request->header('appVersion');
         $appType = $request->header('appType');
@@ -64,9 +126,9 @@ class ProductController extends Controller
                 // } enable once you define app_type
                 // If they are equal, do nothing.
             }
-
+            
             $appType = $request->header('appType');
-            if (isset($appType) && !empty($appType) && $appType == 'B2B') {
+            if(isset($appType) && !empty($appType) && $appType == 'B2B') {
 
                 $minAllowedVersion = '1.1.5';  // Lowest acceptable version
                 $latestVersion = '1.1.5';      // Just for optional update logging
@@ -84,8 +146,8 @@ class ProductController extends Controller
             //     $apkRecord->save();
             // } // disable once you define app_type
 
-        } elseif (isset($appType) && !empty($appType)) {
-            if ($appType == 'B2B') {
+        } elseif(isset($appType) && !empty($appType)) {
+            if($appType == 'B2B'){
                 $minAllowedVersion = '1.1.5';  // Lowest acceptable version
                 $latestVersion = '1.1.5';      // Just for optional update logging
             } else {
@@ -95,8 +157,8 @@ class ProductController extends Controller
 
             if (version_compare($appVersion, $minAllowedVersion, '<')) {
                 return $this->helper_controller->send_response('failed', "Please update your app to the latest version.", 422);
-            }
-        }
+            } 
+        } 
 
         $product_list = [
             [
@@ -128,8 +190,8 @@ class ProductController extends Controller
         // $product_list = json_encode($product_list);
 
         return response()->json([
-            'status' => 'success',
-            'data' => $product_list
+            'status'=>'success',
+            'data'=> $product_list
         ], 200);
     }
 
@@ -183,13 +245,14 @@ class ProductController extends Controller
                 }
             }
 
-            if ($deviceType == 'android' && !empty($appType)) {
-
+            if($deviceType == 'android' && !empty($appType)) {
+                
                 $minAllowedVersion = $versionRules[$appType] ?? $versionRules['default'];
 
                 if (!empty($appVersion) && version_compare($appVersion, $minAllowedVersion, '<')) {
                     return $this->helper_controller->send_response('failed', "Please update your app to the latest version.", 422);
                 }
+            
             }
 
             // Product list
@@ -238,12 +301,11 @@ class ProductController extends Controller
                 'data' => $product_list
             ], 200);
         } catch (\Throwable $e) {
-            return $this->helper_controller->send_response('failed', "An unknown error occurred: " . $e->getMessage(), 422);
+            return $this->helper_controller->send_response('failed', "An unknown error occurred: ". $e->getMessage(), 422);
         }
     }
 
-    public function get_product_type_list_b2c(Request $request)
-    {
+    public function get_product_type_list_b2c(Request $request) {
         $product_list = [
             [
                 'id' => 1,
@@ -275,81 +337,80 @@ class ProductController extends Controller
         return $this->helper_controller->send_response('success', "Product list fetched", 200, $product_list);
     }
 
-    public function get_sub_products(Request $request)
-    {
+    public function get_sub_products(Request $request) {
         $input = $request->all();
-        if ($input == null) {
+        if($input == null) {
             return response()->json([
-                'status' => 'failed',
-                'message' => "Request body is empty"
+                'status'=>'failed',
+                'message'=> "Request body is empty"
             ], 422);
         }
 
-        if (!isset($input['product_id']) || empty($input['product_id'])) {
+        if(!isset($input['product_id']) || empty($input['product_id'])) {
             return response()->json([
-                'status' => 'failed',
-                'message' => "Product id required"
+                'status'=>'failed',
+                'message'=> "Product id required"
             ], 422);
         }
 
         $product_id = $input['product_id'];
 
-        if ($product_id == 1) {
+        if($product_id == 1) {
             // 'product_id' => "1",
             // 'name' => "E-Rickshaw (L3)",
             $sub_products = [
-                'EV Three Wheeler',
-                'E-rickshaw'
+                'EV Three Wheeler', 'E-rickshaw'
             ];
-        } elseif ($product_id == 2) {
+        } elseif($product_id == 2) {
             // 'product_id' => "2",
             // 'name' => "E-Auto (L5)",
             $sub_products = [
-                'E-Auto P L5',
-                'E-Auto C Cargo',
-                'EKA L5-3S',
-                'EKA L5-6S'
+                'E-Auto P L5', 'E-Auto C Cargo', 'EKA L5-3S', 'EKA L5-6S', 'L5 Lite'
             ];
-        } elseif ($product_id == 3) {
+            
+        } elseif($product_id == 3) {
             // 'product_id' => "3",
             // 'name' => "E-Two Wheeler",
             $sub_products = [
                 'EV Two Wheeler'
             ];
-        } elseif ($product_id == 4) {
+            
+        } elseif($product_id == 4) {
             // 'product_id' => "4",
             // 'name' => "Battery",
             $sub_products = [
                 "Lead Acid",
                 "Lithium Ion",
             ];
-        } elseif ($product_id == 5) {
+
+        } elseif($product_id == 5) {
             $sub_products = [
                 "EKA L5-3S",
             ];
-        } elseif ($product_id == 6) {
+
+        } elseif($product_id == 6) {
             $sub_products = [
                 "EKA L5-6S",
             ];
+
         } else {
             $sub_products = [];
         }
 
-        if (count($sub_products) > 0) {
+        if(count($sub_products) > 0) {
             return response()->json([
-                'status' => 'success',
-                'message' => "Sub products fetched successfully",
+                'status'=>'success',
+                'message'=> "Sub products fetched successfully",
                 'data' => $sub_products
             ], 200);
         } else {
             return response()->json([
-                'status' => 'failed',
-                'message' => "No products"
+                'status'=>'failed',
+                'message'=> "No products"
             ], 200);
         }
     }
 
-    // Before
     // public function get_product_models(Request $request) {
     //     $input      = $request->all();
     //     $errorArray = [];
@@ -367,10 +428,10 @@ class ProductController extends Controller
     //     if(!isset($request->product_type) || empty($request->product_type)) {
     //         return $this->helper_controller->send_response('failed', "Product type is required", 422);
     //     }
-
+        
     //     $dealer_id = $request->dealer_id;
     //     $product_type = $request->product_type;
-
+        
     //     $dealer_details = Dealer::where('dealer_unq', $dealer_id)
     //                         ->first();
     //     if(!$dealer_details) {
@@ -421,7 +482,112 @@ class ProductController extends Controller
     //     }
     // }
 
-    // After
+    // public function get_product_models(Request $request) {
+    //     $input      = $request->all();
+    //     $errorArray = [];
+    //     $errorCount = 0;
+    //     if ($input == null) {
+    //         $errorCount++;
+    //         $errorArray['body'] = "Request body is empty";
+    //         return $this->helper_controller->send_response("failed", $errorArray['body'], 422);
+    //     }
+
+    //     if (!isset($request->dealer_id) || empty($request->dealer_id)) {
+    //         return $this->helper_controller->send_response('failed', "Dealer id is required", 422);
+    //     }
+
+    //     if (!isset($request->product_type) || empty($request->product_type)) {
+    //         return $this->helper_controller->send_response('failed', "Product type is required", 422);
+    //     }
+
+    //     $dealer_id = $request->dealer_id;
+    //     $product_type = $request->product_type;
+
+    //     $dealer_details = Dealer::where('dealer_unq', $dealer_id)
+    //         ->first();
+    //     if (!$dealer_details) {
+    //         return $this->helper_controller->send_response('failed', "Invalid dealer id", 422);
+    //     }
+
+    //     $dealer_primary_key = $dealer_details->id;
+    //     $product_list_query = ProductModel::where('status', 'active')->where('dealer_id', $dealer_primary_key)->where('product_type', $product_type);
+
+    //     if (isset($request->sub_product_type) && !empty($request->sub_product_type)) {
+    //         if ($request->sub_product_type == 'Lead Acid' || $request->sub_product_type == 'Lithium Ion') {
+    //             $product_list_query->where('battery_type', $request->sub_product_type);
+    //         }
+    //         if ($request->sub_product_type == 'EKA L5-3S' || $request->sub_product_type == 'EKA L5-6S' || $request->sub_product_type == 'L5 Lite') {
+    //             $product_list_query->where('sub_product_type', $request->sub_product_type);
+    //         }
+    //     }
+
+    //     $product_list = $product_list_query->orderBy('id', 'asc')->get();
+
+    //     $result = ['count' => 0, 'result' => []];
+
+    //     // ---- legacy dealer products ----
+    //     foreach ($product_list as $product) {
+    //         $result['result'][] = [
+    //             "model_unq"           => $product->model_unq,
+    //             "name"                => $product->name,
+    //             "battery_type"        => $product->battery_type,
+    //             "ex_showroom_price"   => $product->ex_showroom_price,
+    //             "loan_to_value_ratio" => $product->loan_to_value_ratio,
+    //             "manufacture_name"    => $product->manufacture_name,
+    //             "min_loan_amount"     => floatval($product->min_loan_amount),
+    //             "max_loan_amount"     => floatval($product->max_loan_amount),
+    //             "min_loan_tenure"     => $product->min_loan_tenure,
+    //             "max_loan_tenure"     => $product->max_loan_tenure,
+    //             "pricing_source"      => "legacy",
+    //         ];
+    //     }
+
+    //     // ---- OEM dynamic products assigned to this dealer ----
+    //     $dynamic = \App\Models\DealerProduct::with([
+    //         'product.oem'
+    //     ])
+    //         ->where('dealer_id', $dealer_primary_key)
+    //         ->where('status', 'active')
+    //         ->get()
+    //         ->pluck('product')
+    //         ->filter(fn($p) => $p && $p->status === 'active' && $p->product_type === $product_type);
+
+    //     // optional sub_product_type filter (battery / sub type) — mirror legacy behavior
+    //     if (!empty($request->sub_product_type)) {
+    //         $sub = $request->sub_product_type;
+    //         $dynamic = $dynamic->filter(function ($p) use ($sub) {
+    //             if (in_array($sub, ['Lead Acid', 'Lithium Ion'], true)) return $p->battery_type === $sub;
+    //             if (in_array($sub, ['EKA L5-3S', 'EKA L5-6S', 'L5 Lite', 'E-Auto P L5', 'E-Auto C Cargo'], true))   return $p->product_sub_type === $sub;
+    //             return true;
+    //         });
+    //     }
+
+    //     foreach ($dynamic as $p) {
+    //         $result['result'][] = [
+    //             "model_unq"           => $p->oem_product_unq,
+    //             "name"                => $p->product_name,
+    //             "battery_type"        => $p->battery_type,
+    //             "ex_showroom_price"   => $p->ex_showroom_price,
+    //             "loan_to_value_ratio" => $p->loan_to_value_ratio,
+    //             "manufacture_name"    => $p->oem?->manufacturer,
+    //             "min_loan_amount"     => floatval($p->min_loan_amount),
+    //             "max_loan_amount"     => floatval($p->max_loan_amount),
+    //             "min_loan_tenure"     => $p->min_loan_tenure,
+    //             "max_loan_tenure"     => $p->max_loan_tenure,
+    //             "pricing_source"      => "oem_dynamic",
+    //         ];
+    //     }
+
+    //     $result['count'] = count($result['result']);
+
+    //     if ($result['count'] < 1) {
+    //         return $this->helper_controller->send_response('failed', "Right now we do not have any models", 422);
+    //     }
+    //     return $this->helper_controller->send_response('success', "Models fetched successfully", 200, $result);
+    // }
+
+    // new logic add create by sandip
+
     public function get_product_models(Request $request)
     {
         $input      = $request->all();
@@ -441,8 +607,14 @@ class ProductController extends Controller
             return $this->helper_controller->send_response('failed', "Product type is required", 422);
         }
 
-        $dealer_id = $request->dealer_id;
+        // ✅ user_id mandatory
+        if (!isset($request->user_id) || empty($request->user_id)) {
+            return $this->helper_controller->send_response('failed', "User id is required", 422);
+        }
+
+        $dealer_id    = $request->dealer_id;
         $product_type = $request->product_type;
+        $user_id      = $request->user_id;
 
         $dealer_details = Dealer::where('dealer_unq', $dealer_id)
             ->first();
@@ -451,13 +623,21 @@ class ProductController extends Controller
         }
 
         $dealer_primary_key = $dealer_details->id;
-        $product_list_query = ProductModel::where('status', 'active')->where('dealer_id', $dealer_primary_key)->where('product_type', $product_type);
+
+        // ✅ User-level check: শুধু active application (CLOSED/REJECTED বাদ)
+        $has_active_application = LoanBasicDetails::where('user_id', $user_id)
+            ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+            ->exists();
+
+        $product_list_query = ProductModel::where('status', 'active')
+            ->where('dealer_id', $dealer_primary_key)
+            ->where('product_type', $product_type);
 
         if (isset($request->sub_product_type) && !empty($request->sub_product_type)) {
             if ($request->sub_product_type == 'Lead Acid' || $request->sub_product_type == 'Lithium Ion') {
                 $product_list_query->where('battery_type', $request->sub_product_type);
             }
-            if ($request->sub_product_type == 'EKA L5-3S' || $request->sub_product_type == 'EKA L5-6S') {
+            if ($request->sub_product_type == 'EKA L5-3S' || $request->sub_product_type == 'EKA L5-6S' || $request->sub_product_type == 'L5 Lite') {
                 $product_list_query->where('sub_product_type', $request->sub_product_type);
             }
         }
@@ -468,6 +648,11 @@ class ProductController extends Controller
 
         // ---- legacy dealer products ----
         foreach ($product_list as $product) {
+            // ✅ Active application থাকলে শুধু approve_multi = true দেখাবে
+            if ($has_active_application && !$product->approve_multi) {
+                continue;
+            }
+
             $result['result'][] = [
                 "model_unq"           => $product->model_unq,
                 "name"                => $product->name,
@@ -483,27 +668,36 @@ class ProductController extends Controller
             ];
         }
 
-        // ---- OEM dynamic products assigned to this dealer ----
-        $dynamic = \App\Models\DealerProduct::with([
-            'product.oem'
-        ])
-            ->where('dealer_id', $dealer_primary_key)
+        // ---- OEM dynamic products ----
+        $dealer_product_ids = \App\Models\DealerProduct::where('dealer_id', $dealer_primary_key)
             ->where('status', 'active')
-            ->get()
-            ->pluck('product')
-            ->filter(fn($p) => $p && $p->status === 'active' && $p->product_type === $product_type);
+            ->pluck('product_id')
+            ->filter()
+            ->unique()
+            ->toArray();
 
-        // optional sub_product_type filter (battery / sub type) — mirror legacy behavior
+        $oem_query = \App\Models\OemDynamicProduct::with('oem')
+            ->where('status', 'active')
+            ->where('product_type', $product_type)
+            ->whereIn('id', $dealer_product_ids);
+
         if (!empty($request->sub_product_type)) {
             $sub = $request->sub_product_type;
-            $dynamic = $dynamic->filter(function ($p) use ($sub) {
-                if (in_array($sub, ['Lead Acid', 'Lithium Ion'], true)) return $p->battery_type === $sub;
-                if (in_array($sub, ['EKA L5-3S', 'EKA L5-6S'], true))   return $p->product_sub_type === $sub;
-                return true;
-            });
+            if (in_array($sub, ['Lead Acid', 'Lithium Ion'], true)) {
+                $oem_query->where('battery_type', $sub);
+            } elseif (in_array($sub, ['EKA L5-3S', 'EKA L5-6S', 'L5 Lite', 'E-Auto P L5', 'E-Auto C Cargo'], true)) {
+                $oem_query->where('product_sub_type', $sub);
+            }
         }
 
-        foreach ($dynamic as $p) {
+        $oem_products = $oem_query->orderBy('id', 'asc')->get();
+
+        foreach ($oem_products as $p) {
+            // ✅ Active application থাকলে শুধু approve_multi = true দেখাবে
+            if ($has_active_application && !$p->approve_multi) {
+                continue;
+            }
+
             $result['result'][] = [
                 "model_unq"           => $p->oem_product_unq,
                 "name"                => $p->product_name,
@@ -527,27 +721,26 @@ class ProductController extends Controller
         return $this->helper_controller->send_response('success', "Models fetched successfully", 200, $result);
     }
 
-    public function get_inverter_product_models(Request $request)
-    {
+    public function get_inverter_product_models(Request $request) {
         $input      = $request->all();
         $errorArray = [];
         $errorCount = 0;
-        if ($input == null) {
+        if($input == null) {
             $errorCount++;
             $errorArray['body'] = "Request body is empty";
             return $this->helper_controller->send_response("failed", $errorArray['body'], 422);
         }
 
-        if (!isset($request->dealer_id) || empty($request->dealer_id)) {
+        if(!isset($request->dealer_id) || empty($request->dealer_id)) {
             return $this->helper_controller->send_response('failed', "Dealer id is required", 422);
         }
-
+        
         $dealer_id = $request->dealer_id;
         $product_type = $request->product_type;
-
+        
         $dealer_details = Dealer::where('dealer_unq', $dealer_id)
-            ->first();
-        if (!$dealer_details) {
+                            ->first();
+        if(!$dealer_details) {
             return $this->helper_controller->send_response('failed', "Invalid dealer id", 422);
         }
 
@@ -556,12 +749,12 @@ class ProductController extends Controller
 
         $product_list = $product_list_query->orderBy('id', 'asc')->get();
 
-        if ($product_list->count() < 1) {
+        if($product_list->count() < 1) {
             return $this->helper_controller->send_response('failed', "Right now we do not have any models", 422);
         } else {
             $result = [];
             $result['count'] = $product_list->count();
-            foreach ($product_list as $product) {
+            foreach($product_list as $product) {
                 $min_loan_amount = $product->min_loan_amount;
 
                 $result['result'][] = [
@@ -579,9 +772,8 @@ class ProductController extends Controller
             return $this->helper_controller->send_response('success', "Models fetched successfully", 200, $result);
         }
     }
-
-    public function index(Request $request)
-    {
+    
+    public function index(Request $request) {
         try {
             // Define default values
             $page = $request->get('page', 1);
@@ -628,10 +820,20 @@ class ProductController extends Controller
                 ], 400);
             }
 
+            [$visibleDealerIds, $emptyResult] = $this->resolveVisibleDealerIds((int) auth()->id());
+
+            if ($emptyResult) {
+                return response()->json(
+                    new \Illuminate\Pagination\LengthAwarePaginator([], 0, $numberOfRecords, $page),
+                    200
+                );
+            }
+
             // Build the query
             $query = DB::table('product_models')
                 ->join('dealers', 'product_models.dealer_id', '=', 'dealers.id')
                 ->where('dealers.is_deleted', false)
+                ->when($visibleDealerIds !== null, fn ($q) => $q->whereIn('product_models.dealer_id', $visibleDealerIds))
                 ->select(
                     'dealers.dealer_unq',
                     'dealers.name as dealer_name',
@@ -679,13 +881,13 @@ class ProductController extends Controller
                 $query->whereRaw('LOWER(dealers.dealer_unq) LIKE ?', ['%' . strtolower($dealerId) . '%']);
             }
             if ($modelUnq && $modelUnq != '' && $modelUnq != null) {
-                $query->whereRaw('LOWER(product_models.model_unq) LIKE ?', ["%" . strtolower($modelUnq) . "%"]);
+                $query->whereRaw('LOWER(product_models.model_unq) LIKE ?', ["%".strtolower($modelUnq)."%"]);
             }
             if ($name && $name != '' && $name != null) {
-                $query->whereRaw('LOWER(product_models.name) LIKE ?', ["%" . strtolower($name) . "%"]);
+                $query->whereRaw('LOWER(product_models.name) LIKE ?', ["%".strtolower($name)."%"]);
             }
             if ($batteryType && $batteryType != '' && $batteryType != null) {
-                $query->whereRaw('LOWER(product_models.battery_type) LIKE ?', ["%" . strtolower($batteryType) . "%"]);
+                $query->whereRaw('LOWER(product_models.battery_type) LIKE ?', ["%".strtolower($batteryType)."%"]);
             }
             if ($exShowroomPrice && $exShowroomPrice != '' && $exShowroomPrice != null) {
                 $query->where('product_models.ex_showroom_price', $exShowroomPrice);
@@ -694,7 +896,7 @@ class ProductController extends Controller
                 $query->where('product_models.loan_to_value_ratio', $loanToValueRatio);
             }
             if ($manufactureName && $manufactureName != '' && $manufactureName != null) {
-                $query->whereRaw('LOWER(product_models.manufacture_name) LIKE ?', ["%" . strtolower($manufactureName) . "%"]);
+                $query->whereRaw('LOWER(product_models.manufacture_name) LIKE ?', ["%".strtolower($manufactureName)."%"]);
             }
             if ($interest && $interest != '' && $interest != null) {
                 $query->where('product_models.interest', $interest);
@@ -704,6 +906,7 @@ class ProductController extends Controller
             $products = $query->where('is_deleted', false)->orderBy('id', 'desc')->paginate($numberOfRecords, ['*'], 'page', $page);
 
             return response()->json($products, 200);
+
         } catch (Exception $e) {
             // Handle errors
             return response()->json([
@@ -738,9 +941,9 @@ class ProductController extends Controller
             ]);
 
             $existing_product = ProductModel::where('dealer_id', $request->input('dealer_id'))
-                ->where('name', 'like', '%' . $request->input('name') . '%')
-                ->where('battery_type', $request->input('battery_type'))
-                ->first();
+                                            ->where('name', 'like', '%'.$request->input('name').'%')
+                                            ->where('battery_type', $request->input('battery_type'))
+                                            ->first();
 
             if ($existing_product) {
                 return $this->helper_controller->send_response('failed', 'Product with the same details already exists', 400, $existing_product);
@@ -754,7 +957,7 @@ class ProductController extends Controller
 
             $ex_showroom_price = is_numeric($request->input('ex_showroom_price')) ? $request->input('ex_showroom_price') : 0;
             $model->ex_showroom_price = $ex_showroom_price;
-
+            
             $model->loan_to_value_ratio = $request->input('loan_to_value_ratio');
             $model->manufacture_name = $request->input('manufacture_name');
             $model->min_loan_amount = $request->input('min_loan_amount');
@@ -806,17 +1009,16 @@ class ProductController extends Controller
                 'iot' => 'required|numeric',
                 'insurance_1st_year' => 'required|numeric',
                 'insurance_2nd_year' => 'required|numeric',
-                'approve_multi' => 'nullable|boolean',
             ]);
 
             $model = ProductModel::findOrFail($id);
 
             // Check if another product with the same dealer_id, name, and battery_type exists
             $existing_product = ProductModel::where('dealer_id', $request->input('dealer_id'))
-                ->where('name', 'like', $request->input('name'))
-                ->where('battery_type', $request->input('battery_type'))
-                ->where('id', '!=', $id) // Exclude the current product
-                ->first();
+                                            ->where('name', 'like', $request->input('name'))
+                                            ->where('battery_type', $request->input('battery_type'))
+                                            ->where('id', '!=', $id) // Exclude the current product
+                                            ->first();
 
             if ($existing_product) {
                 return $this->helper_controller->send_response('failed', 'Product with the same details already exists', 400);
@@ -828,7 +1030,7 @@ class ProductController extends Controller
 
             $ex_showroom_price = is_numeric($request->input('ex_showroom_price')) ? $request->input('ex_showroom_price') : 0;
             $model->ex_showroom_price = $ex_showroom_price;
-
+            
             $model->loan_to_value_ratio = $request->input('loan_to_value_ratio');
             $model->manufacture_name = $request->input('manufacture_name');
             $model->min_loan_amount = $request->input('min_loan_amount');
@@ -843,10 +1045,6 @@ class ProductController extends Controller
             $model->iot = $request->input('iot');
             $model->insurance_1st_year = $request->input('insurance_1st_year');
             $model->insurance_2nd_year = $request->input('insurance_2nd_year');
-
-            $model->approve_multi = $request->has('approve_multi') 
-                ? filter_var($request->input('approve_multi'), FILTER_VALIDATE_BOOLEAN) 
-                : false;
 
             // Save the updated model
             $model->save();
@@ -877,19 +1075,19 @@ class ProductController extends Controller
             $request->validate([
                 'file' => 'required|mimes:xlsx'
             ]);
-
+    
             // Store the file
             $file = $request->file('file');
             $originalFileName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $timestamp = date('Y_m_d_H_i_s');
             $fileName = "{$originalFileName}_{$timestamp}.{$file->getClientOriginalExtension()}";
             $path = $file->storeAs('Product/excel', $fileName, 'public');
-
-
+            
+            
             // Load and validate the Excel file
             $rows = Excel::toCollection(null, $file)[0];
             $validationResult = $this->validateExcelRows($rows);
-
+    
             // Check if validation errors exist
             if (!empty($validationResult['errors'])) {
                 // If validation errors exist, store the upload record with status 'REJECTED'
@@ -902,10 +1100,10 @@ class ProductController extends Controller
                     'reason' => 'Validation errors occurred',
                     'file_path' => 'storage/' . $path
                 ]);
-
+    
                 return $this->helper_controller->send_response('failed', 'Validation errors', 422, ['errors' => $validationResult['errors'], 'record' => $uploadRecord]);
             }
-
+    
             // Create a record with status 'PENDING' if no validation errors
             $uploadRecord = ProductUploadExcel::create([
                 'file_name' => $fileName,
@@ -916,59 +1114,43 @@ class ProductController extends Controller
                 'reason' => null,
                 'file_path' => 'storage/' . $path
             ]);
-
+    
             return $this->helper_controller->send_response('success', 'File uploaded successfully', 200, ['record' => $uploadRecord]);
+    
         } catch (Exception $e) {
             return $this->helper_controller->send_response('failed', 'Unable to process the file', 422, ['message' => $e->getMessage()]);
         }
     }
-
+    
 
     private function validateExcelRows($rows)
     {
         $errors = [];
         $validRows = [];
         $headers = [
-            'dealer_id',
-            'name',
-            'battery_type',
-            'ex_showroom_price',
-            'loan_to_value_ratio',
-            'manufacture_name',
-            'min_loan_amount',
-            'max_loan_amount',
-            'min_loan_tenure',
-            'max_loan_tenure',
-            'product_type',
-            'product_sub_type',
-            'interest',
-            'processing_fee',
-            'subvention_amount',
-            'fldg',
-            'iot',
-            'insurance_1st_year',
-            'insurance_2nd_year',
-            'interest_type',
-            'model_id'
+            'dealer_id', 'name', 'battery_type', 'ex_showroom_price', 'loan_to_value_ratio',
+            'manufacture_name', 'min_loan_amount', 'max_loan_amount', 'min_loan_tenure',
+            'max_loan_tenure', 'product_type', 'product_sub_type' , 'interest', 'processing_fee', 'subvention_amount',
+            'fldg', 'iot', 'insurance_1st_year', 'insurance_2nd_year','interest_type', 'model_id'
         ];
         $headerCount = count($headers);
-
+    
         // Skip the header row
         $rows = $rows->skip(1);
-
+    
         $maxEmptyRows = 3; // Define a threshold for maximum consecutive empty rows
         $emptyRowCount = 0;
-
+    
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 1; // Adjust row number to account for the header row
-
+    
             // Convert $row from Collection to Array
             $rowArray = $row->toArray();
-
+    
             // Trim or pad the row to match header count
             $rowArray = array_slice($rowArray, 0, $headerCount);
             $rowArray = array_pad($rowArray, $headerCount, null);
-
+    
             // Remove empty rows
             if (empty(array_filter($rowArray))) {
                 $emptyRowCount++;
@@ -982,15 +1164,15 @@ class ProductController extends Controller
                 // Reset the empty row counter if a valid row is found
                 $emptyRowCount = 0;
             }
-
+    
             // Map row data to headers
             $mappedRow = array_combine($headers, $rowArray);
-
+    
             if ($mappedRow === false) {
                 $errors[] = "Row {$rowNumber}: Could not map row to headers.";
                 continue;
             }
-
+    
             // Validate based on the mapped data
             $dealer_id = $mappedRow['dealer_id'];
             $name = trim($mappedRow['name']);
@@ -1003,13 +1185,13 @@ class ProductController extends Controller
             $min_loan_tenure = $mappedRow['min_loan_tenure'];
             $max_loan_tenure = $mappedRow['max_loan_tenure'];
             $interest_type = $mappedRow['interest_type'];
-
+            
             $product_type = trim($mappedRow['product_type']);
             $product_sub_type = trim($mappedRow['product_sub_type'] ?? '');
 
             $model_id = trim($mappedRow['model_id'] ?? '');
             $isUpdate = $model_id !== '';
-
+            
             $interest = $mappedRow['interest'];
             $processing_fee = $mappedRow['processing_fee'] ?? 0;
             $subvention_amount = $mappedRow['subvention_amount'] ?? 0;
@@ -1043,7 +1225,7 @@ class ProductController extends Controller
                     }
                 }
             }
-
+    
             // Validate required string fields
             $stringFields = [
                 'name' => $name,
@@ -1056,36 +1238,36 @@ class ProductController extends Controller
                     $errors[] = "Row {$rowNumber}: " . ucfirst(str_replace('_', ' ', $fieldName)) . " is required and must be a string";
                 }
             }
-
-            if (!empty($product_type)) {
+            
+            if(!empty($product_type)) {
                 $product_typeExist = ProductTypes::where('product_type', $product_type)->first();
-                if (!$product_typeExist) {
+                if(!$product_typeExist) {                    
                     $errors[] = "Row {$rowNumber}: Invalid product type";
-                }
+                } 
             }
 
             // E-Auto (L5) requires a valid product_sub_type
             if ($product_type === 'E-Auto (L5)') {
-                $validSubTypes = ['E-Auto P L5', 'E-Auto C Cargo', 'EKA L5-3S', 'EKA L5-6S'];
+                $validSubTypes = ['E-Auto P L5', 'E-Auto C Cargo', 'EKA L5-3S', 'EKA L5-6S', 'L5 Lite'];
                 if (empty($product_sub_type)) {
                     $errors[] = "Row {$rowNumber}: Product sub type is required for E-Auto (L5)";
                 } elseif (!in_array($product_sub_type, $validSubTypes, true)) {
                     $errors[] = "Row {$rowNumber}: Invalid product sub type for E-Auto (L5). Must be one of: " . implode(', ', $validSubTypes);
                 }
             }
-            if (!empty($manufacture_name)) {
+            if(!empty($manufacture_name)) {
                 $manufacture_nameExist = Manufacturers::where('manufacturer', $manufacture_name)->first();
-                if (!$manufacture_nameExist) {
+                if(!$manufacture_nameExist) {
                     $errors[] = "Row {$rowNumber}: Invalid manufacturer";
-                }
+                } 
             }
-            if (!empty($battery_type)) {
+            if(!empty($battery_type)) {
                 $battery_typeExist = BatteryTypes::where('battery_type', $battery_type)->first();
-                if (!$battery_typeExist) {
+                if(!$battery_typeExist) {
                     $errors[] = "Row {$rowNumber}: Invalid battery type";
-                }
+                } 
             }
-
+    
             // Validate numeric fields
             $numericFields = [
                 'ex_showroom_price' => $ex_showroom_price,
@@ -1115,13 +1297,13 @@ class ProductController extends Controller
                     $errors[] = "Row {$rowNumber}: " . ucfirst(str_replace('_', ' ', $fieldName)) . " must be a numeric value";
                 }
             }
-
+                
             // Validate LTV
             if ($loan_to_value_ratio < 1) {
                 $errors[] = "Row {$rowNumber}: Loan to value ratio is required and must be a numeric value";
             }
 
-            if (!in_array($interest_type, [ProductModel::FLAT, ProductModel::REDUCING])) {
+            if(!in_array($interest_type, [ProductModel::FLAT, ProductModel::REDUCING])) {
                 $errors[] = "Row {$rowNumber}: " . " interest_type must contain either flat or reducing";
             }
 
@@ -1129,7 +1311,7 @@ class ProductController extends Controller
             // if (!is_numeric($insurance_2nd_year)) {
             //     $errors[] = "Row {$rowNumber}: Insurance for the 2nd year must be a numeric value or empty";
             // }
-
+    
             // Add valid row to the validRows array if no errors
             if (empty($errors)) {
                 $mappedRow['sub_product_type'] = $product_sub_type;
@@ -1138,12 +1320,12 @@ class ProductController extends Controller
                 $validRows[] = $mappedRow;
             }
         }
-
+    
         // If errors exist and valid rows are empty, notify of the issues
         if (!empty($errors) && empty($validRows)) {
             $errors[] = "No valid rows found.";
         }
-
+    
         return [
             'errors' => $errors,
             'validRows' => $validRows
@@ -1235,7 +1417,7 @@ class ProductController extends Controller
             //         $productModel->insurance_2nd_year = $row['insurance_2nd_year'] ?? 0;
             //         $productModel->sub_product_type = !empty($row['product_sub_type']) ? trim($row['product_sub_type']) : '';
             //         $productModel->interest_type = !empty($row['interest_type']) ? trim($row['interest_type']) : ProductModel::FLAT;
-
+                    
             //         $productModel->save();
 
 
@@ -1342,20 +1524,17 @@ class ProductController extends Controller
 
             // Join with admin_user table to fetch names
             $files = $query->leftJoin('admin_users as uploader', 'product_upload_excels.uploaded_by', '=', 'uploader.id')
-                ->leftJoin('admin_users as updater', 'product_upload_excels.updated_by', '=', 'updater.id')
-                ->select(
-                    'product_upload_excels.*',
-                    'uploader.name as uploaded_by_name',
-                    'updater.name as updated_by_name'
-                )
-                ->orderBy('product_upload_excels.created_at', 'desc')->paginate($records_per_page, ['*'], 'page', $page);
+                        ->leftJoin('admin_users as updater', 'product_upload_excels.updated_by', '=', 'updater.id')
+                        ->select('product_upload_excels.*', 
+                                    'uploader.name as uploaded_by_name', 
+                                    'updater.name as updated_by_name')
+                        ->orderBy('product_upload_excels.created_at', 'desc')->paginate($records_per_page, ['*'], 'page', $page);
             $files->getCollection()->transform(function ($file) {
                 // Assuming file_path is the path stored in the database like 'storage/folder/subfolder'
                 $file->file_path = url($file->file_path); // Or use asset($file->file_path)
-                $file->approve_multi = $file->approve_multi ?? false; // new field for approve_multi, default to false if null
                 return $file;
             });
-
+            
             return $this->helper_controller->send_response('success', 'Files retrieved successfully', 200, $files);
         } catch (Exception $e) {
             return $this->helper_controller->send_response('failed', 'Unable to retrieve files', 422, ['message' => $e->getMessage()]);
@@ -1432,7 +1611,7 @@ class ProductController extends Controller
                 // Update existing records with the provided token_id to 'HISTORY'
                 LenderProductCharges::where('token_id', $validated['token_id'])
                     ->update(['status' => 'HISTORY']);
-
+                
                 // Generate a new token in the format "dmY.primary_key"
                 $tokenId = date('dmY') . (LenderProductCharges::max('id') + 1);
             } else {
@@ -1456,6 +1635,7 @@ class ProductController extends Controller
             }
 
             return $this->helper_controller->send_response('success', 'Records processed successfully', 201);
+
         } catch (Exception $e) {
             return $this->helper_controller->send_response('failed', 'An error occurred: ' . $e->getMessage(), 422);
         }
@@ -1477,7 +1657,8 @@ class ProductController extends Controller
                 return $this->helper_controller->send_response('failed', 'No active charges found for this product.', 200);
             }
 
-            return $this->helper_controller->send_response('success', "Charges fetched successfully", 200, $charges);
+            return $this->helper_controller->send_response('success',"Charges fetched successfully", 200, $charges);
+
         } catch (Exception $e) {
             return $this->helper_controller->send_response('failed', 'An error occurred: ' . $e->getMessage(), 422);
         }
@@ -1498,6 +1679,7 @@ class ProductController extends Controller
             }
 
             return $this->helper_controller->send_response('success',  "Products fetched successfully", 200, $products);
+
         } catch (Exception $e) {
             return $this->helper_controller->send_response('failed', 'An error occurred: ' . $e->getMessage(), 422);
         }
@@ -1512,7 +1694,7 @@ class ProductController extends Controller
 
             // Check if the file exists and is not a directory
             if (!file_exists($filePath) || !is_file($filePath)) {
-
+                
                 return $this->helper_controller->send_response('failed', "File not found", 404);
             }
 
@@ -1520,6 +1702,7 @@ class ProductController extends Controller
             $downloadLink = asset("Assets/templates/{$fileName}");
 
             return $this->helper_controller->send_response('success', "Template url retrieved", 200, ['download_link' => $downloadLink]);
+
         } catch (Exception $e) {
             // Log the exception for debugging purposes
 
@@ -1565,7 +1748,7 @@ class ProductController extends Controller
                 //     'new_status' => $new_status,
                 // ];
             }
-
+            
             DB::commit();
             return $this->helper_controller->send_response('success', 'Products status updated successfully', 200);
         } catch (Exception $e) {
@@ -1573,4 +1756,5 @@ class ProductController extends Controller
             return $this->helper_controller->send_response('failed', "An unknown error occurred: " . $e->getMessage(), 422);
         }
     }
+
 }

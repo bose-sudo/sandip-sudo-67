@@ -52,16 +52,32 @@ class GravitonPushFamilyMembersCommand extends Command
         return self::SUCCESS;
     }
 
+    // protected function dispatchForBorrower(BorrowerKyc $borrower): void
+    // {
+    //     GravitonReferenceHelperService::clearCache();
+
+    //     if (CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->exists()) {
+    //         PushFamilyMemberJob::dispatch($borrower->id, 'coapplicant');
+    //         $this->line("  → Co-Applicant job for borrower {$borrower->id}");
+    //     }
+
+    //     if (Guarantor::where('borrower_id', $borrower->borrower_id)->exists()) {
+    //         PushFamilyMemberJob::dispatch($borrower->id, 'guarantor');
+    //         $this->line("  → Guarantor job for borrower {$borrower->id}");
+    //     }
+    // }
+
+
     protected function dispatchForBorrower(BorrowerKyc $borrower): void
     {
         GravitonReferenceHelperService::clearCache();
 
-        if (CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->exists()) {
+        if (CoapplicantKyc::where('borrower_id', $borrower->id)->exists()) {
             PushFamilyMemberJob::dispatch($borrower->id, 'coapplicant');
             $this->line("  → Co-Applicant job for borrower {$borrower->id}");
         }
 
-        if (Guarantor::where('borrower_id', $borrower->borrower_id)->exists()) {
+        if (Guarantor::where('borrower_id', $borrower->id)->exists()) {
             PushFamilyMemberJob::dispatch($borrower->id, 'guarantor');
             $this->line("  → Guarantor job for borrower {$borrower->id}");
         }
