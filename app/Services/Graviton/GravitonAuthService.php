@@ -56,13 +56,23 @@ class GravitonAuthService
         return $token;
     }
 
+    // public function client()
+    // {
+    //     return Http::withHeaders([
+    //         'Content-Type'               => 'application/json;charset=UTF-8',
+    //         'Accept'                     => 'application/json',
+    //         'Fineract-Platform-TenantId' => config('graviton.tenant_id'),
+    //         'Authorization'              => 'Bearer ' . $this->getToken(),
+    //     ])->baseUrl(config('graviton.base_url'));
+    // }
+
     public function client()
     {
         return Http::withHeaders([
-            'Content-Type'               => 'application/json;charset=UTF-8',
             'Accept'                     => 'application/json',
             'Fineract-Platform-TenantId' => config('graviton.tenant_id'),
             'Authorization'              => 'Bearer ' . $this->getToken(),
+            // ✅ Content-Type remove koro — Laravel auto set korbe
         ])->baseUrl(config('graviton.base_url'));
     }
 }

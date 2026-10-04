@@ -92,6 +92,7 @@ use App\Http\Controllers\UserHierarchyController;
 use App\Http\Controllers\DealerMappingController;
 use App\Http\Controllers\FullAccessController;
 use App\Http\Controllers\Api\V1\AdminDashboardController;
+use App\Http\Controllers\Api\V1\LoanMasterExportController;
 
 use App\Http\Controllers\EmiPresentmentController;
 use App\Http\Controllers\DebitRequestController;
@@ -366,6 +367,7 @@ Route::group([
     
     // Route::post('/get-models', [LoanController::class, 'verify_dealer_id']);
     Route::post('/get-models', [ProductController::class, 'get_product_models']);
+    Route::post('/approve-multi-products', [ProductController::class, 'getApproveMultiProducts']);
     
     Route::post('/lender-consent', [LoanController::class, 'lender_consent_acceptance']);
     Route::post('/store-reference-details', [LoanController::class, 'store_reference_details']);
@@ -504,6 +506,8 @@ Route::middleware('auth:admin')->group(function () {
     Route::get('/get-borrower-list', [AdminDashboardController::class, 'get_borrower_list'])->name('admin.get-borrower-list');
     Route::get('/get-dashboard-details', [AdminDashboardController::class, 'getDashboardDetails']);
     Route::get('/get-yearly-count', [AdminDashboardController::class, 'getYearlyCount']);
+    // routes/api.php
+    Route::get('/loan-master/export', [LoanMasterExportController::class, 'export']);
 });
 Route::middleware('auth:admin')->prefix('admin')->group(function () {
     Route::post('/field-inspection-meter-image-verify', [BorrowerController::class, 'verify_meter_image'])->name('admin.update-meter-verification-status');

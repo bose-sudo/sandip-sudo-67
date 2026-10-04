@@ -40,20 +40,12 @@ class GravitonFamilyMemberPushService
                 throw new \Exception("Borrower {$borrower->id} has no graviton_client_id");
             }
 
-            // if ($role === 'coapplicant') {
-            //     $person     = CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->latest()->first();
-            //     $occupation = CoapplicantOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
-            // } else {
-            //     $person     = Guarantor::where('borrower_id', $borrower->borrower_id)->latest()->first();
-            //     $occupation = GuarantorOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
-            // }
-
             if ($role === 'coapplicant') {
-                $person     = CoapplicantKyc::where('borrower_id', $borrower->id)->latest()->first();
-                $occupation = CoapplicantOccupation::where('borrower_id', $borrower->id)->latest()->first();
+                $person     = CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->latest()->first();
+                $occupation = CoapplicantOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
             } else {
-                $person     = Guarantor::where('borrower_id', $borrower->id)->latest()->first();
-                $occupation = GuarantorOccupation::where('borrower_id', $borrower->id)->latest()->first();
+                $person     = Guarantor::where('borrower_id', $borrower->borrower_id)->latest()->first();
+                $occupation = GuarantorOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
             }
 
             if (!$person) {
@@ -116,6 +108,9 @@ class GravitonFamilyMemberPushService
         }
     }
 
+    /**
+     * ✅ Build payload with hardcoded truncate
+     */
     protected function buildPayload(BorrowerKyc $borrower, $person, $occupation, string $role): array
     {
         [$firstName, $lastName] = $this->splitName($person->name);
@@ -132,8 +127,12 @@ class GravitonFamilyMemberPushService
         $addressTypeId    = $this->ref->getId($bid, 'addressTypeOptions', null, 'Owned');
         $addressSubTypeId = $this->ref->getId($bid, 'addressSubTypeOptions', null, 'Current');
 
-        $addressLine = $occupation->current_address ?? '';
-        $postalCode  = $this->extractPostalCode($addressLine);
+        // ✅ Address split — unlimited support
+        $addressLine = trim((string) ($occupation->current_address ?? ''));
+        $addressParts = $this->splitAddress($addressLine);
+
+        // Postal code extract
+        $postalCode = $this->extractPostalCode($addressLine);
 
         $roleFields = $role === 'coapplicant'
             ? [
@@ -188,8 +187,10 @@ class GravitonFamilyMemberPushService
             'address' => [[
                 'addressTypeId'    => (int) $addressTypeId,
                 'addressSubTypeId' => (int) $addressSubTypeId,
-                'addressLine1'     => $addressLine ?: 'N/A',
-                'landmark'         => 'N/A',
+                'addressLine1'     => $addressParts['line1'],   // ✅ Max 100
+                'addressLine2'     => $addressParts['line2'],   // ✅ Max 100
+                'addressLine3'     => $addressParts['line3'],   // ✅ Max 100
+                'landmark'         => $addressParts['landmark'], // ✅ Baki (unlimited)
                 'city'             => 'N/A',
                 'district'         => 'N/A',
                 'state'            => 'N/A',
@@ -209,6 +210,9 @@ class GravitonFamilyMemberPushService
         ]);
     }
 
+    /**
+     * ✅ Build KYC data
+     */
     protected function buildKycData($person, string $role): array
     {
         $kyc    = [];
@@ -251,6 +255,9 @@ class GravitonFamilyMemberPushService
         return $kyc;
     }
 
+    /**
+     * ✅ Split name into first + last
+     */
     protected function splitName(?string $name): array
     {
         $name = trim($name ?? '');
@@ -259,11 +266,56 @@ class GravitonFamilyMemberPushService
         return [$parts[0] ?? '', $parts[1] ?? ''];
     }
 
+    /**
+     * ✅ Extract 6-digit postal code
+     */
     protected function extractPostalCode(?string $address): ?string
     {
         if (preg_match('/(\d{6})/', $address ?? '', $m)) {
             return $m[1];
         }
         return null;
+    }
+
+    /**
+     * Split address into 3 lines + landmark (unlimited support)
+     *
+     * addressLine1 → first 100 chars
+     * addressLine2 → next 100 chars
+     * addressLine3 → next 100 chars
+     * landmark     → remaining (unlimited)
+     */
+    protected function splitAddress(string $address): array
+    {
+        $address = trim($address);
+
+        if (empty($address)) {
+            return [
+                'line1'    => 'N/A',
+                'line2'    => null,
+                'line3'    => null,
+                'landmark' => 'N/A',
+            ];
+        }
+
+        $length = strlen($address);
+
+        $line1 = substr($address, 0, 100);
+        $line2 = $length > 100 ? substr($address, 100, 100) : null;
+        $line3 = $length > 200 ? substr($address, 200, 100) : null;
+
+        // ✅ landmark max 255 chars (safe limit)
+        $landmark = 'N/A';
+        if ($length > 300) {
+            $remaining = substr($address, 300);
+            $landmark  = substr($remaining, 0, 255);  // ✅ Max 255
+        }
+
+        return [
+            'line1'    => $line1 ?: 'N/A',
+            'line2'    => $line2,
+            'line3'    => $line3,
+            'landmark' => $landmark,
+        ];
     }
 }

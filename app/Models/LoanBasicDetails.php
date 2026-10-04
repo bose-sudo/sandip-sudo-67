@@ -104,14 +104,14 @@ class LoanBasicDetails extends Model
         return $this->hasOne(GuarantorOccupation::class, 'borrower_id', 'id')->latest();
     }
     
-    // public function latestCreditSummary()
-    // {
-    //     return $this->hasOne(LoanApplicationSummary::class, 'borrower_id', 'id')
-    //         ->whereRaw('loan_application_summaries.borrower_id = CAST(loan_basic_details.id AS TEXT)')
-    //         ->orderByDesc('created_at');
-    // }
-
     public function latestCreditSummary()
+    {
+        return $this->hasOne(LoanApplicationSummary::class, 'borrower_id', 'id')
+            ->whereRaw('loan_application_summaries.borrower_id = CAST(loan_basic_details.id AS TEXT)')
+            ->orderByDesc('created_at');
+    }
+
+    public function latestCreditSummary2()
     {
         return $this->hasOne(
             LoanApplicationSummary::class,
@@ -228,5 +228,25 @@ class LoanBasicDetails extends Model
     public function latestDisbursement(){
         return $this->hasOne(DisbursementDetails::class, 'borrower_id', 'id')
                 ->latest();
+    }
+
+    public function firstRepaymentSchedule2()
+    {
+        return $this->hasOne(BorrowerRepaymentSchedule::class, 'borrower_id', 'id')
+                    ->orderBy('due_date', 'asc')
+                    ->limit(1);
+    }
+
+    public function latestRepaymentSchedule()
+    {
+        return $this->hasOne(BorrowerRepaymentSchedule::class, 'borrower_id', 'id')
+                    ->orderBy('due_date', 'desc')
+                    ->limit(1);
+    }
+
+     public function currentLoanScheme(){
+        return $this->hasOne(BorrowerLoanScheme::class, 'borrower_id', 'id')
+                ->where('is_current', true)
+                ->orderByDesc('id');
     }
 }

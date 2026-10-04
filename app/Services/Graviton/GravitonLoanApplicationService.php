@@ -322,6 +322,7 @@ class GravitonLoanApplicationService
                 'allowPartialPeriodInterestCalcualtion'        => false,
                 'principalThresholdForLastInstalment'          => 0,
                 'principalThresholdForLastInstallmentofLoan'   => 0,
+                'useSop' => true,
             ],
 
             'kycData' => $this->buildKycData($borrower),

@@ -52,11 +52,16 @@ class BorrowerKyc extends Model
         "udyam_aadhaar_number",
         "vehicle_reg_no",
 // New columns added in the migration
+        "graviton_loan_id",
         "graviton_client_id",
         "dedupe_match_percentage",
         "dedupe_data",
         "dedupe_checked_at",
         "dedupe_status",
+        'graviton_credit_report_resource_id',   // ✅ NEW
+        'graviton_credit_report_status',         // ✅ NEW
+        'graviton_credit_report_synced_at',      // ✅ NEW
+        'graviton_credit_report_error',          // ✅ NEW
     ];
 
     protected $casts = [
@@ -66,6 +71,7 @@ class BorrowerKyc extends Model
         'is_verified_mobile'      => 'boolean',
         'is_verified_pan'         => 'boolean',
         'is_verified_aadhar'      => 'boolean',
+        'graviton_credit_report_synced_at' => 'datetime',   // ✅ NEW
     ];
     public function loanBasicDetails()
     {

@@ -25,6 +25,81 @@ class GravitonReferenceDataService
      * 2. Credit Bureau Template
      * 3. Loan Template (productId-based)
      */
+    // public function syncForBorrower(BorrowerKyc $borrower): GravitonReferenceData
+    // {
+    //     $record = GravitonReferenceData::firstOrNew(['borrower_id' => $borrower->id]);
+    //     $record->sync_status = 'pending';
+    //     $record->save();
+
+    //     try {
+    //         // 1. Authenticate
+    //         $this->authenticate();
+
+    //         // ─────────────────────────────────────────────
+    //         // 2. Family Member Template API
+    //         // ─────────────────────────────────────────────
+    //         $familyTemplate = $this->fetchFamilyMemberTemplate(0);
+    //         $record->family_member_template_data = $familyTemplate;
+
+    //         // ─────────────────────────────────────────────
+    //         // 3. Credit Bureau Template API
+    //         // ─────────────────────────────────────────────
+    //         $creditTemplate = $this->fetchCreditBureauTemplate();
+    //         $record->credit_bureau_template_data = $creditTemplate;
+
+    //         // ─────────────────────────────────────────────
+    //         // 4. Loan Template API — productId সহ
+    //         // ─────────────────────────────────────────────
+    //         // $productId    = $borrower->loanScheme?->product_id ?? null;
+    //         $productId    = config('graviton.defaults.product_id', 36);
+    //         $loanTemplate = $this->fetchLoanTemplate($productId);
+    //         $record->loan_template_data = $loanTemplate;
+
+    //         // ─────────────────────────────────────────────
+    //         // Extract from Family Member Template
+    //         // ─────────────────────────────────────────────
+    //         $record->legal_form_id    = $familyTemplate['clientLegalFormOptions'][0]['id'] ?? null;
+    //         $record->salutation_id    = $familyTemplate['salutation'][0]['id'] ?? null;
+    //         $record->document_type_id = $familyTemplate['customerIdentifierOptions'][0]['id'] ?? null;
+
+    //         // ─────────────────────────────────────────────
+    //         // Extract from Loan Template
+    //         // ─────────────────────────────────────────────
+
+    //         // Top-level product defaults
+    //         $record->repayment_every     = $loanTemplate['repaymentEvery'] ?? null;
+    //         $record->loan_term_frequency = $loanTemplate['termFrequency'] ?? null;
+
+    //         // List-based [0] extraction
+    //         $record->loan_term_frequency_type = 
+    //             $loanTemplate['termFrequencyTypeOptions'][0]['id'] ?? null;
+
+    //         $record->transaction_processing_strategy_id = 
+    //             $loanTemplate['transactionProcessingStrategyOptions'][0]['id'] ?? null;
+
+    //         $record->loan_purpose_id = 
+    //             $loanTemplate['loanPurposeOptions'][0]['id'] ?? null;
+
+    //         // ─────────────────────────────────────────────
+    //         // Mark success
+    //         // ─────────────────────────────────────────────
+    //         $record->sync_status    = 'success';
+    //         $record->sync_error     = null;
+    //         $record->last_synced_at = now();
+    //         $record->save();
+
+    //         Log::info("Graviton sync OK for borrower {$borrower->id}");
+    //     } catch (\Throwable $e) {
+    //         $record->sync_status = 'failed';
+    //         $record->sync_error  = $e->getMessage();
+    //         $record->save();
+
+    //         Log::error("Graviton sync FAILED for borrower {$borrower->id}: " . $e->getMessage());
+    //     }
+
+    //     return $record;
+    // }
+
     public function syncForBorrower(BorrowerKyc $borrower): GravitonReferenceData
     {
         $record = GravitonReferenceData::firstOrNew(['borrower_id' => $borrower->id]);
@@ -32,57 +107,92 @@ class GravitonReferenceDataService
         $record->save();
 
         try {
-            // 1. Authenticate
             $this->authenticate();
 
-            // ─────────────────────────────────────────────
-            // 2. Family Member Template API
-            // ─────────────────────────────────────────────
+            // ─────────────────────────────────────────
+            // Fetch templates
+            // ─────────────────────────────────────────
             $familyTemplate = $this->fetchFamilyMemberTemplate(0);
             $record->family_member_template_data = $familyTemplate;
 
-            // ─────────────────────────────────────────────
-            // 3. Credit Bureau Template API
-            // ─────────────────────────────────────────────
             $creditTemplate = $this->fetchCreditBureauTemplate();
             $record->credit_bureau_template_data = $creditTemplate;
 
-            // ─────────────────────────────────────────────
-            // 4. Loan Template API — productId সহ
-            // ─────────────────────────────────────────────
-            // $productId    = $borrower->loanScheme?->product_id ?? null;
             $productId    = config('graviton.defaults.product_id', 36);
             $loanTemplate = $this->fetchLoanTemplate($productId);
             $record->loan_template_data = $loanTemplate;
 
-            // ─────────────────────────────────────────────
-            // Extract from Family Member Template
-            // ─────────────────────────────────────────────
-            $record->legal_form_id    = $familyTemplate['clientLegalFormOptions'][0]['id'] ?? null;
-            $record->salutation_id    = $familyTemplate['salutation'][0]['id'] ?? null;
-            $record->document_type_id = $familyTemplate['customerIdentifierOptions'][0]['id'] ?? null;
+            // ─────────────────────────────────────────
+            // Family Member Template extract
+            // ─────────────────────────────────────────
+            $record->legal_form_id = data_get($familyTemplate, 'clientLegalFormOptions.0.id');
+            // → 1 (INDIVIDUAL)
 
-            // ─────────────────────────────────────────────
-            // Extract from Loan Template
-            // ─────────────────────────────────────────────
+            // customerIdentifierOptions — mandatory নেই, তাই 'Id' name দিয়ে
+            $identifiers = collect($familyTemplate['customerIdentifierOptions'] ?? []);
+            $identifier  = $identifiers->firstWhere('mandatory', true)
+                ?? $identifiers->firstWhere('name', 'Id')
+                ?? $identifiers->first();
 
-            // Top-level product defaults
-            $record->repayment_every     = $loanTemplate['repaymentEvery'] ?? null;
-            $record->loan_term_frequency = $loanTemplate['termFrequency'] ?? null;
+            $record->document_type_id = $identifier['id'] ?? null;
+            // → 2
 
-            // List-based [0] extraction
-            $record->loan_term_frequency_type = 
-                $loanTemplate['termFrequencyTypeOptions'][0]['id'] ?? null;
+            // salutation — marital_status অনুযায়ী
+            $normalize   = fn ($s) => strtolower(trim(str_replace('.', '', $s ?? '')));
+            $salutations = collect($familyTemplate['salutation'] ?? []);
 
-            $record->transaction_processing_strategy_id = 
-                $loanTemplate['transactionProcessingStrategyOptions'][0]['id'] ?? null;
+            $maritalStatus = strtolower(trim($borrower->marital_status ?? ''));
 
-            $record->loan_purpose_id = 
-                $loanTemplate['loanPurposeOptions'][0]['id'] ?? null;
+            $target = match ($maritalStatus) {
+                'married'   => 'mrs',
+                'unmarried' => 'ms',
+                'divorced'  => 'ms',
+                'widowed'   => 'mrs',
+                default     => 'mr',
+            };
 
-            // ─────────────────────────────────────────────
-            // Mark success
-            // ─────────────────────────────────────────────
+            $salutation = $salutations->first(
+                fn ($s) => $normalize($s['name'] ?? '') === $target
+            );
+
+            $record->salutation_id = $salutation['id']
+                ?? $salutations->firstWhere('name', 'Mr.')['id']
+                ?? null;
+            // married → 290, unmarried → 289, default → 288
+
+            // ─────────────────────────────────────────
+            // Loan Template extract
+            // ─────────────────────────────────────────
+            $record->repayment_every     = data_get($loanTemplate, 'repaymentEvery');
+            $record->loan_term_frequency = data_get($loanTemplate, 'termFrequency');
+
+            // termFrequencyTypeOptions — Months খুঁজি (id: 2)
+            $termFreqs = collect($loanTemplate['termFrequencyTypeOptions'] ?? []);
+            $termFreq  = $termFreqs->firstWhere('value', 'Months');
+
+            $record->loan_term_frequency_type = $termFreq['id']
+                ?? $termFreqs->first()['id']
+                ?? null;
+            // → 2
+
+            // transactionProcessingStrategyOptions — default প্রথমটা
+            $record->transaction_processing_strategy_id =
+                data_get($loanTemplate, 'transactionProcessingStrategyId')
+                ?? data_get($loanTemplate, 'transactionProcessingStrategyOptions.0.id');
+            // → 6 (from top-level transactionProcessingStrategyId)
+
+            // loanPurposeOptions — PURCHASE OF VEHICLE খুঁজি
+            $loanPurposes = collect($loanTemplate['loanPurposeOptions'] ?? []);
+            $loanPurpose  = $loanPurposes->firstWhere('name', 'PURCHASE OF VEHICLE');
+
+            $record->loan_purpose_id = $loanPurpose['id']
+                ?? $loanPurposes->first()['id']
+                ?? null;
+            // → 385
+
+            // ─────────────────────────────────────────
+            // Success
+            // ─────────────────────────────────────────
             $record->sync_status    = 'success';
             $record->sync_error     = null;
             $record->last_synced_at = now();

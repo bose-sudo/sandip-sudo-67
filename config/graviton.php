@@ -1,17 +1,21 @@
 <?php
 
 return [
-    'base_url'      => env('GRAVITON_BASE_URL'),
+    'base_url'  => env('GRAVITON_BASE_URL', 'https://uat.kugelblitz.xyz:8443/fineract-provider/api/v1'),
     'tenant_id'     => env('GRAVITON_TENANT_ID', 'akme'),
     'auth_endpoint' => env('GRAVITON_AUTH_ENDPOINT', '/authentication/generate-access-token'),
     'username'      => env('GRAVITON_USERNAME'),
     'password'      => env('GRAVITON_PASSWORD'),
+
+    'file_base_url' => env('GRAVITON_FILE_BASE_URL', 'http://13.205.48.55'),
+    // 'file_secret'   => env('GRAVITON_FILE_SECRET', ''),
 
     'defaults' => [
         // .env theke
         'office_id'         => env('GRAVITON_OFFICE_ID', 1),
         'internal_sales_id' => env('GRAVITON_INTERNAL_SALES_ID', 158),
         'product_id'        => env('GRAVITON_DEFAULT_PRODUCT_ID', 36),
+        'credit_bureau_type_id' => env('GRAVITON_CREDIT_BUREAU_TYPE_ID', 1),
 
         // ═══════════════════════════════════════════════════
         // CONSTANTS (all time same)

@@ -11,6 +11,7 @@ use App\Models\LoanBasicDetails;
 use App\Models\LenderProductCharges;
 use App\Models\Manufacturers;
 use App\Models\ProductModel;
+use App\Models\OemDynamicProduct;
 use App\Models\ProductTypes;
 use App\Models\ProductUploadExcel;
 use Carbon\Carbon;
@@ -661,6 +662,141 @@ class ProductController extends Controller
     //     return $this->helper_controller->send_response('success', "Models fetched successfully", 200, $result);
     // }
 
+    // public function get_product_models(Request $request)
+    // {
+    //     $input      = $request->all();
+    //     $errorArray = [];
+    //     $errorCount = 0;
+    //     if ($input == null) {
+    //         $errorCount++;
+    //         $errorArray['body'] = "Request body is empty";
+    //         return $this->helper_controller->send_response("failed", $errorArray['body'], 422);
+    //     }
+
+    //     if (!isset($request->dealer_id) || empty($request->dealer_id)) {
+    //         return $this->helper_controller->send_response('failed', "Dealer id is required", 422);
+    //     }
+
+    //     if (!isset($request->product_type) || empty($request->product_type)) {
+    //         return $this->helper_controller->send_response('failed', "Product type is required", 422);
+    //     }
+
+        
+    //     $user_id = $request->user_id ?? null;
+
+    //     $dealer_id    = $request->dealer_id;
+    //     $product_type = $request->product_type;
+
+    //     $dealer_details = Dealer::where('dealer_unq', $dealer_id)->first();
+    //     if (!$dealer_details) {
+    //         return $this->helper_controller->send_response('failed', "Invalid dealer id", 422);
+    //     }
+
+    //     $dealer_primary_key = $dealer_details->id;
+
+    //     // ✅ User-level check: when user_id is provided
+    //     $has_active_application = false;
+    //     if (!empty($user_id)) {
+    //         $has_active_application = LoanBasicDetails::where('user_id', $user_id)
+    //             ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+    //             ->exists();
+    //     }
+
+    //     $product_list_query = ProductModel::where('status', 'active')
+    //         ->where('dealer_id', $dealer_primary_key)
+    //         ->where('product_type', $product_type);
+
+    //     if (isset($request->sub_product_type) && !empty($request->sub_product_type)) {
+    //         if ($request->sub_product_type == 'Lead Acid' || $request->sub_product_type == 'Lithium Ion') {
+    //             $product_list_query->where('battery_type', $request->sub_product_type);
+    //         }
+    //         if ($request->sub_product_type == 'EKA L5-3S' || $request->sub_product_type == 'EKA L5-6S' || $request->sub_product_type == 'L5 Lite') {
+    //             $product_list_query->where('sub_product_type', $request->sub_product_type);
+    //         }
+    //     }
+
+    //     $product_list = $product_list_query->orderBy('id', 'asc')->get();
+
+    //     $result = ['count' => 0, 'result' => []];
+
+    //     // ---- legacy dealer products ----
+    //     foreach ($product_list as $product) {
+    //         // ✅ Active application থাকলে শুধু approve_multi = true দেখাবে
+    //         if ($has_active_application && !$product->approve_multi) {
+    //             continue;
+    //         }
+
+    //         $result['result'][] = [
+    //             "model_unq"           => $product->model_unq,
+    //             "name"                => $product->name,
+    //             "battery_type"        => $product->battery_type,
+    //             "ex_showroom_price"   => $product->ex_showroom_price,
+    //             "loan_to_value_ratio" => $product->loan_to_value_ratio,
+    //             "manufacture_name"    => $product->manufacture_name,
+    //             "min_loan_amount"     => floatval($product->min_loan_amount),
+    //             "max_loan_amount"     => floatval($product->max_loan_amount),
+    //             "min_loan_tenure"     => $product->min_loan_tenure,
+    //             "max_loan_tenure"     => $product->max_loan_tenure,
+    //             "pricing_source"      => "legacy",
+    //         ];
+    //     }
+
+    //     // ---- OEM dynamic products ----
+    //     $dealer_product_ids = \App\Models\DealerProduct::where('dealer_id', $dealer_primary_key)
+    //         ->where('status', 'active')
+    //         ->pluck('product_id')
+    //         ->filter()
+    //         ->unique()
+    //         ->toArray();
+
+    //     $oem_query = \App\Models\OemDynamicProduct::with('oem')
+    //         ->where('status', 'active')
+    //         ->where('product_type', $product_type)
+    //         ->whereIn('id', $dealer_product_ids);
+
+    //     if (!empty($request->sub_product_type)) {
+    //         $sub = $request->sub_product_type;
+    //         if (in_array($sub, ['Lead Acid', 'Lithium Ion'], true)) {
+    //             $oem_query->where('battery_type', $sub);
+    //         } elseif (in_array($sub, ['EKA L5-3S', 'EKA L5-6S', 'L5 Lite', 'E-Auto P L5', 'E-Auto C Cargo'], true)) {
+    //             $oem_query->where('product_sub_type', $sub);
+    //         }
+    //     }
+
+    //     $oem_products = $oem_query->orderBy('id', 'asc')->get();
+
+    //     foreach ($oem_products as $p) {
+    //         // ✅ Active application থাকলে শুধু approve_multi = true দেখাবে
+    //         if ($has_active_application && !$p->approve_multi) {
+    //             continue;
+    //         }
+
+    //         $result['result'][] = [
+    //             "model_unq"           => $p->oem_product_unq,
+    //             "name"                => $p->product_name,
+    //             "battery_type"        => $p->battery_type,
+    //             "ex_showroom_price"   => $p->ex_showroom_price,
+    //             "loan_to_value_ratio" => $p->loan_to_value_ratio,
+    //             "manufacture_name"    => $p->oem?->manufacturer,
+    //             "min_loan_amount"     => floatval($p->min_loan_amount),
+    //             "max_loan_amount"     => floatval($p->max_loan_amount),
+    //             "min_loan_tenure"     => $p->min_loan_tenure,
+    //             "max_loan_tenure"     => $p->max_loan_tenure,
+    //             "pricing_source"      => "oem_dynamic",
+    //         ];
+    //     }
+
+    //     $result['count'] = count($result['result']);
+
+    //     if ($result['count'] < 1) {
+    //         return $this->helper_controller->send_response('failed', "Right now we do not have any models", 422);
+    //     }
+    //     return $this->helper_controller->send_response('success', "Models fetched successfully", 200, $result);
+    // }
+
+
+    // New function to get inverter product models by sandip
+
     public function get_product_models(Request $request)
     {
         $input      = $request->all();
@@ -680,29 +816,27 @@ class ProductController extends Controller
             return $this->helper_controller->send_response('failed', "Product type is required", 422);
         }
 
-        // ⚠️ TEMPORARY: user_id optional করা হয়েছে
-        // আগে: mandatory ছিল
-        // পরে: যদি পাঠায় তাহলে user-level check হবে, না পাঠালে skip
-        // TODO: পরে আবার mandatory করতে হবে
-        $user_id = $request->user_id ?? null;
+        // ✅ user_id mandatory
+        if (!isset($request->user_id) || empty($request->user_id)) {
+            return $this->helper_controller->send_response('failed', "User id is required", 422);
+        }
 
         $dealer_id    = $request->dealer_id;
         $product_type = $request->product_type;
+        $user_id      = $request->user_id;
 
-        $dealer_details = Dealer::where('dealer_unq', $dealer_id)->first();
+        $dealer_details = Dealer::where('dealer_unq', $dealer_id)
+            ->first();
         if (!$dealer_details) {
             return $this->helper_controller->send_response('failed', "Invalid dealer id", 422);
         }
 
         $dealer_primary_key = $dealer_details->id;
 
-        // ✅ User-level check: শুধু তখনই হবে যখন user_id দেওয়া হবে
-        $has_active_application = false;
-        if (!empty($user_id)) {
-            $has_active_application = LoanBasicDetails::where('user_id', $user_id)
-                ->whereNotIn('status', ['CLOSED', 'REJECTED'])
-                ->exists();
-        }
+        // ✅ User-level check: শুধু active application (CLOSED/REJECTED বাদ)
+        $has_active_application = LoanBasicDetails::where('user_id', $user_id)
+            ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+            ->exists();
 
         $product_list_query = ProductModel::where('status', 'active')
             ->where('dealer_id', $dealer_primary_key)
@@ -739,6 +873,7 @@ class ProductController extends Controller
                 "max_loan_amount"     => floatval($product->max_loan_amount),
                 "min_loan_tenure"     => $product->min_loan_tenure,
                 "max_loan_tenure"     => $product->max_loan_tenure,
+                "approve_multi"       => (bool) $product->approve_multi,   // ✅ added
                 "pricing_source"      => "legacy",
             ];
         }
@@ -784,6 +919,7 @@ class ProductController extends Controller
                 "max_loan_amount"     => floatval($p->max_loan_amount),
                 "min_loan_tenure"     => $p->min_loan_tenure,
                 "max_loan_tenure"     => $p->max_loan_tenure,
+                "approve_multi"       => (bool) $p->approve_multi,         // ✅ added
                 "pricing_source"      => "oem_dynamic",
             ];
         }
@@ -1840,6 +1976,120 @@ class ProductController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             return $this->helper_controller->send_response('failed', "An unknown error occurred: " . $e->getMessage(), 422);
+        }
+    }
+
+    public function getApproveMultiProducts(Request $request)
+    {
+        try {
+            // ✅ Validation
+            if (empty($request->user_id)) {
+                return $this->helper_controller->send_response(
+                    'failed',
+                    'user_id is required',
+                    422
+                );
+            }
+
+            $user_id = $request->user_id;
+
+            // ✅ User er active loan ache kina check
+            $has_active_application = LoanBasicDetails::where('user_id', $user_id)
+                ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+                ->exists();
+
+            if (!$has_active_application) {
+                return $this->helper_controller->send_response(
+                    'failed',
+                    'User has no active loan application',
+                    422
+                );
+            }
+
+            // ✅ User er sob active loan ekbar-e fetch korun (performance)
+            $userLoans = LoanBasicDetails::where('user_id', $user_id)
+                ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+                ->select('id', 'model', 'loan_amount', 'status')
+                ->get()
+                ->groupBy('model');   // ✅ model name diye group
+
+            $result = [];
+
+            // =========================================================
+            // ---- 1. Legacy Product Models ----
+            // =========================================================
+            $legacyProducts = ProductModel::where('approve_multi', true)
+                ->where('status', 'active')
+                ->select('id', 'name', 'model_unq')
+                ->get();
+
+            foreach ($legacyProducts as $product) {
+                // ✅ Oi product er sob loan individual vabe
+                $loans = $userLoans->get($product->name, collect());
+
+                foreach ($loans as $loan) {
+                    $result[] = [
+                        'product_name' => $product->name,
+                        'model_unq'    => $product->model_unq,
+                        'product_type' => 'legacy',
+                        'loan_id'      => $loan->id,
+                        'loan_amount'  => floatval($loan->loan_amount ?? 0),
+                        'status'       => $loan->status,
+                    ];
+                }
+            }
+
+            // =========================================================
+            // ---- 2. OEM Dynamic Products ----
+            // =========================================================
+            $oemProducts = OemDynamicProduct::where('approve_multi', true)
+                ->where('status', 'active')
+                ->select('id', 'product_name', 'oem_product_unq')
+                ->get();
+
+            foreach ($oemProducts as $product) {
+                // ✅ Oi product er sob loan individual vabe
+                $loans = $userLoans->get($product->product_name, collect());
+
+                // ✅ OEM e loan na thakle skip
+                if ($loans->isEmpty()) {
+                    continue;
+                }
+
+                foreach ($loans as $loan) {
+                    $result[] = [
+                        'product_name' => $product->product_name,
+                        'model_unq'    => $product->oem_product_unq,
+                        'product_type' => 'oem_dynamic',
+                        'loan_id'      => $loan->id,
+                        'loan_amount'  => floatval($loan->loan_amount ?? 0),
+                        'status'       => $loan->status,
+                    ];
+                }
+            }
+
+            if (empty($result)) {
+                return $this->helper_controller->send_response(
+                    'failed',
+                    'No approve_multi products found with loans',
+                    422
+                );
+            }
+
+            return $this->helper_controller->send_response(
+                'success',
+                'Approve multi products fetched successfully',
+                200,
+                [
+                    'count'  => count($result),
+                    'result' => $result,
+                ]
+            );
+        } catch (Exception $e) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ], 422);
         }
     }
 }

@@ -10,6 +10,8 @@ class GravitonApplicationLog extends Model
 
     protected $fillable = [
         'borrower_id',
+        'step',              // ✅ ADD
+        'entity_type',       // ✅ ADD
         'endpoint',
         'request_payload',
         'response_payload',

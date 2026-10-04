@@ -54,6 +54,8 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Enums\FearProduct;
+use App\Services\FearEarningService;
 use ZipArchive;
 
 class DashboardController extends Controller
@@ -3576,56 +3578,113 @@ class DashboardController extends Controller
             : '';
 
         // ---------- FERA CALCULATION (Product-wise earning based) ----------
+        // $emi_value        = is_numeric($emi) ? (float) $emi : 0;
+        // $product_id       = $loanScheme->product_id ?? null;
+        // $sub_product_name = strtoupper($product_name ?? '');
+
+        // $rate_min = 0; $rate_max = 0;
+        // $km_min   = 0; $km_max   = 0;
+        // $days     = 25;      // working days/month
+        // $min_foir = 50;      // minimum Net FERA %
+
+        // if ($product_id == 1) {
+        //     // L3 — E-Rickshaw / EV Three Wheeler
+        //     $rate_min = 7;  $rate_max = 12;
+        //     $km_min   = 75; $km_max   = 100;
+        // } elseif ($product_id == 2) {
+        //     // L5 — E-Auto family
+        //     $rate_min = 12; $rate_max = 18;
+        //     $km_min   = 75; $km_max   = 120;
+        // }
+
+        // // 6S override (EKA L5-6S)
+        // if (str_contains($sub_product_name, '6S')) {
+        //     $rate_min = 15; $rate_max = 20;
+        //     $km_min   = 100; $km_max  = 130;
+        // }
+
+        // // L5 Lite override
+        // if (str_contains($sub_product_name, 'L5 LITE') || str_contains($sub_product_name, 'L5-LITE')) {
+        //     $rate_min = 7;  $rate_max = 12;
+        //     $km_min   = 75; $km_max   = 100;
+        // }
+
+        // // Income range calculation
+        // $income_per_month_min = ($rate_min * $km_min) * $days;
+        // $income_per_month_max = ($rate_max * $km_max) * $days;
+
+        // // Net FERA %
+        // $net_foir_min = ($emi_value > 0 && $income_per_month_min > 0)
+        //     ? round(($income_per_month_min / $emi_value) * 100, 2) : 0;
+        // $net_foir_max = ($emi_value > 0 && $income_per_month_max > 0)
+        //     ? round(($income_per_month_max / $emi_value) * 100, 2) : 0;
+
+        // $is_foir_eligible = $net_foir_min >= $min_foir;
+
+        // // Display strings
+        // $income_range_display = ($income_per_month_max > 0)
+        //     ? number_format($income_per_month_min) . ' - ' . number_format($income_per_month_max)
+        //     : '';
+
+        // $foir_range_display = ($net_foir_max > 0)
+        //     ? $net_foir_min . '% - ' . $net_foir_max . '%'
+        //     : '';
+
+
         $emi_value        = is_numeric($emi) ? (float) $emi : 0;
         $product_id       = $loanScheme->product_id ?? null;
         $sub_product_name = strtoupper($product_name ?? '');
+        $days             = 25;
+        $min_foir         = 50;
 
-        $rate_min = 0; $rate_max = 0;
-        $km_min   = 0; $km_max   = 0;
-        $days     = 25;      // working days/month
-        $min_foir = 50;      // minimum Net FERA %
+        // Product type → FearProduct enum
+        $fearProduct = match (true) {
+            str_contains($sub_product_name, '6S')          => FearProduct::S6,
+            str_contains($sub_product_name, 'L5 LITE'),
+            str_contains($sub_product_name, 'L5-LITE')     => FearProduct::L5_LITE,
+            $product_id == 1                               => FearProduct::L3,
+            $product_id == 2                               => FearProduct::L5,
+            $product_id == 3                               => FearProduct::L5_LITE,
+            $product_id == 4                               => FearProduct::BATTERY,
+            default                                        => FearProduct::L3,
+        };
 
-        if ($product_id == 1) {
-            // L3 — E-Rickshaw / EV Three Wheeler
-            $rate_min = 7;  $rate_max = 12;
-            $km_min   = 75; $km_max   = 100;
-        } elseif ($product_id == 2) {
-            // L5 — E-Auto family
-            $rate_min = 12; $rate_max = 18;
-            $km_min   = 75; $km_max   = 120;
+        // ---------- Simulation ----------
+        $income_min = $income_typical = $income_max = 0;
+        $foir_min   = $foir_typical   = $foir_max   = 0;
+        $is_foir_eligible = false;
+
+        if ($fearProduct->hasEarningModel() && $emi_value > 0) {
+            $estimate = app(FearEarningService::class)->estimate(
+                product: $fearProduct,
+                seed: $loan_basic_details->id,
+                days: $days,
+            );
+
+            $income_min     = $estimate->p10;
+            $income_typical = $estimate->p50;
+            $income_max     = $estimate->p90;
+
+            $foir_min     = round(($income_min     / $emi_value) * 100, 2);
+            $foir_typical = round(($income_typical / $emi_value) * 100, 2);
+            $foir_max     = round(($income_max     / $emi_value) * 100, 2);
+
+            $is_foir_eligible = $foir_min >= $min_foir;
         }
 
-        // 6S override (EKA L5-6S)
-        if (str_contains($sub_product_name, '6S')) {
-            $rate_min = 15; $rate_max = 20;
-            $km_min   = 100; $km_max  = 130;
-        }
-
-        // L5 Lite override
-        if (str_contains($sub_product_name, 'L5 LITE') || str_contains($sub_product_name, 'L5-LITE')) {
-            $rate_min = 7;  $rate_max = 12;
-            $km_min   = 75; $km_max   = 100;
-        }
-
-        // Income range calculation
-        $income_per_month_min = ($rate_min * $km_min) * $days;
-        $income_per_month_max = ($rate_max * $km_max) * $days;
-
-        // Net FERA %
-        $net_foir_min = ($emi_value > 0 && $income_per_month_min > 0)
-            ? round(($income_per_month_min / $emi_value) * 100, 2) : 0;
-        $net_foir_max = ($emi_value > 0 && $income_per_month_max > 0)
-            ? round(($income_per_month_max / $emi_value) * 100, 2) : 0;
-
-        $is_foir_eligible = $net_foir_min >= $min_foir;
-
-        // Display strings
-        $income_range_display = ($income_per_month_max > 0)
-            ? number_format($income_per_month_min) . ' - ' . number_format($income_per_month_max)
+        $income_range_display = $income_max > 0
+            ? number_format($income_min) . ' - ' . number_format($income_max)
             : '';
 
-        $foir_range_display = ($net_foir_max > 0)
-            ? $net_foir_min . '% - ' . $net_foir_max . '%'
+        // $income_display_with_typical = $income_max > 0
+        //     ? number_format($income_min) . ' / ' . number_format($income_typical) . ' / ' . number_format($income_max)
+        //     : '';
+
+        $income_display_with_typical = $income_max > 0 ? number_format($income_min). ' / ' . number_format($income_typical). ' / ' . number_format($income_max) : '';
+        // Output: "49,300 / 50,300 / 51,330"
+
+        $foir_range_display = $foir_max > 0
+            ? $foir_min . '% - ' . $foir_max . '%'
             : '';
 
         // ---------- ASSET ----------
@@ -3657,12 +3716,12 @@ class DashboardController extends Controller
             'col_4' => is_numeric($emi) ? $emi * 2 : '',
         ];
 
-        $businessProfile[] = [
-            'col_1' => 'Expected Monthly Income',
-            'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
-            'col_3' => 'FERA (Future Earning & Repayment Analysis)',
-            'col_4' => $income_range_display,      // e.g. "22500 - 54000"
-        ];
+        // $businessProfile[] = [
+        //     'col_1' => 'Expected Monthly Income',
+        //     'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+        //     'col_3' => 'FERA (Future Earning & Repayment Analysis)',
+        //     'col_4' => $income_range_display,      // e.g. "22500 - 54000"
+        // ];
 
         // $businessProfile[] = [
         //     'col_1' => 'Assessed Net Income (Min-Max)',
@@ -3676,6 +3735,33 @@ class DashboardController extends Controller
         //     'col_2' => $is_foir_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE',
         //     'col_3' => 'Assumption',
         //     'col_4' => "Rate ₹{$rate_min}-{$rate_max}/km × {$km_min}-{$km_max} km/day × {$days} days",
+        // ];
+
+        $businessProfile[] = [
+            'col_1' => 'Expected Monthly Income',
+            'col_2' => $borrower_occupation->expected_monthly_earning ?? '',
+            'col_3' => 'FERA (P10 / P50 / P90)',
+            'col_4' => $income_display_with_typical,
+        ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'FERA Range (P10 - P90)',
+        //     'col_2' => $income_range_display,
+        //     'col_3' => 'Net FOIR % (P10 - P90)',
+        //     'col_4' => $foir_range_display,
+        // ];
+
+        // $businessProfile[] = [
+        //     'col_1' => 'FOIR Eligibility (≥' . $min_foir . '%)',
+        //     'col_2' => $fearProduct->hasEarningModel()
+        //         ? ($is_foir_eligible ? 'ELIGIBLE' : 'NOT ELIGIBLE')
+        //         : 'NA (No earning model)',
+        //     'col_3' => 'Assumption',
+        //     'col_4' => $fearProduct->hasEarningModel()
+        //         ? "Rate ₹{$fearProduct->rate()['min']}-{$fearProduct->rate()['max']}/km × "
+        //         . "{$fearProduct->km()['min']}-{$fearProduct->km()['max']} km/day × {$days} days "
+        //         . "(simulated, 20k runs)"
+        //         : '',
         // ];
 
         // ---------- REFERENCES ----------
