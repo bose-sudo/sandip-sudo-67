@@ -348,12 +348,36 @@ class GravitonLoanApplicationService
         };
     }
 
+    // protected function splitName(?string $name): array
+    // {
+    //     $name = trim($name ?? '');
+    //     if (empty($name)) return ['', ''];
+    //     $parts = explode(' ', $name, 2);
+    //     return [$parts[0] ?? '', $parts[1] ?? ''];
+    // }
+
     protected function splitName(?string $name): array
     {
         $name = trim($name ?? '');
-        if (empty($name)) return ['', ''];
+        if (empty($name)) {
+            return ['N/A', 'N/A'];
+        }
+
         $parts = explode(' ', $name, 2);
-        return [$parts[0] ?? '', $parts[1] ?? ''];
+        $firstName = trim($parts[0] ?? '');
+        $lastName  = trim($parts[1] ?? '');
+
+        // ✅ Last name empty hole first name use koro
+        if (empty($lastName)) {
+            $lastName = $firstName;
+        }
+
+        // ✅ First name empty hole last name use koro
+        if (empty($firstName)) {
+            $firstName = $lastName;
+        }
+
+        return [$firstName, $lastName];
     }
 
     protected function resolveInterestType(?string $schemeType): int

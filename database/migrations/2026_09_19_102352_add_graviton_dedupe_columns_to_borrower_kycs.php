@@ -14,7 +14,7 @@ return new class extends Migration
             $table->json('dedupe_data')->nullable()->after('dedupe_match_percentage');
             $table->timestamp('dedupe_checked_at')->nullable()->after('dedupe_data');
             $table->enum('dedupe_status', ['pending', 'no_match', 'matched', 'failed'])
-                  ->default('pending')
+                  ->default('no_match')
                   ->after('dedupe_checked_at');
         });
     }

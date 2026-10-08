@@ -29,6 +29,7 @@ use App\Models\NpciBankList;
 use App\Models\ProductModel;
 use App\Models\StateMaster;
 use App\Models\User;
+use App\Models\UserRequest;
 use App\Models\VendorServiceApi;
 use App\Traits\ApiResponse;
 use App\Traits\SendsSanctionMail;
@@ -8254,6 +8255,7 @@ class AdminLoanController extends Controller
                     'meter_image' => !empty($borrower->meter_image) ? url($borrower->meter_image) : '',
                     'meter_verification_status' => $borrower->meter_verification_status ?? '',
                     'meter_remarks' => $borrower->meter_remarks ?? '',
+                    'approve_multi' => $borrower->approve_multi ?? 'false',
                 ];
             });
             $borrowers = $borrowers->filter(fn($borrower) => $borrower !== null);
@@ -8318,6 +8320,153 @@ class AdminLoanController extends Controller
                 'error' => 'An error occurred while fetching loan records.',
                 'message' => $e->getMessage()
             ], 400);
+        }
+    }
+
+     public function store(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer|exists:users,id',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Validation error',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        // Prevent duplicate pending request
+        $existing = UserRequest::where('user_id', $request->user_id)
+                    ->where('status', 'pending')
+                    ->first();
+
+        if ($existing) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'This user already has a pending request',
+                'data'    => $existing,
+            ], 409);
+        }
+
+        try {
+            $userRequest = UserRequest::create([
+                'user_id' => $request->user_id,
+                'status'  => 'pending',
+                'remarks' => $request->remarks,
+            ]);
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'User request created successfully',
+                'data'    => $userRequest,
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Something went wrong',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ API 2: List of UserRequests
+     * GET /api/user-requests
+     */
+    public function index(Request $request)
+    {
+        $query = UserRequest::with('user:id,name,email,mobile,approve_multi')
+                    ->orderBy('id', 'desc');
+
+        // Optional filters
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        $userRequests = $query->paginate($request->get('per_page', 10));
+
+        return response()->json([
+            'status'  => true,
+            'message' => 'User request list',
+            'data'    => $userRequests,
+        ], 200);
+    }
+
+    /**
+     * API 3: Update status (approve / reject)
+     * Also syncs users.approve_multi
+     * PATCH /api/user-requests/{id}/status
+     */
+    public function updateStatus(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status'  => 'required|in:approved,rejected',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Validation error',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        $userRequest = UserRequest::find($id);
+
+        if (!$userRequest) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Request not found',
+            ], 404);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            // 1️⃣ Update the request
+            $userRequest->status  = $request->status;
+            $userRequest->remarks = $request->remarks ?? $userRequest->remarks;
+            $userRequest->save();
+
+            // 2️⃣ Sync users.approve_multi
+            $user = User::find($userRequest->user_id);
+
+            if ($user) {
+                $user->approve_multi = ($request->status === 'approved'); // true / false
+                $user->save();
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'Status updated and user approve_multi synced',
+                'data'    => [
+                    'request' => $userRequest->fresh(),
+                    'user'    => [
+                        'id'            => $user?->id,
+                        'approve_multi' => (bool) $user?->approve_multi,
+                    ],
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'status'  => false,
+                'message' => 'Something went wrong',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
     }
 

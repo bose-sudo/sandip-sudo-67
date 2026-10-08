@@ -508,6 +508,9 @@ Route::middleware('auth:admin')->group(function () {
     Route::get('/get-yearly-count', [AdminDashboardController::class, 'getYearlyCount']);
     // routes/api.php
     Route::get('/loan-master/export', [LoanMasterExportController::class, 'export']);
+    Route::get('/pos-data/export', [LoanMasterExportController::class, 'posexport']);
+    Route::get('/portfolio-cut/export', [LoanMasterExportController::class, 'portexport']);
+    Route::get('/dealer-shops/export', [LoanMasterExportController::class, 'dealerexport']);
 });
 Route::middleware('auth:admin')->prefix('admin')->group(function () {
     Route::post('/field-inspection-meter-image-verify', [BorrowerController::class, 'verify_meter_image'])->name('admin.update-meter-verification-status');
@@ -526,7 +529,8 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
     });
 
     Route::get('/get-product-list', [ProductController::class, 'index'])->name('admin.get-product-list');
-    Route::post('/store-product', [ProductController::class, 'store'])->name('');
+    Route::patch('/product-models/toggle-approve-multi/{key}', [ProductController::class, 'toggleApproveMulti'])->name('admin.toggle-approve-multi');
+    Route::post('/store-product', [ProductController::class, 'store'])->name('admin.store-product');
     Route::get('/edit-product/{id}', [ProductController::class, 'read'])->name('admin.edit-product');
     Route::put('/update-product/{id}', [ProductController::class, 'update'])->name('admin.update-product');
 
@@ -749,6 +753,9 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
     Route::post('/get-user-address-details', [BorrowerController::class, 'get_applicant_address_data']);
     
     Route::get('/get-all-user-list', [AdminLoanController::class, 'get_all_user_list'])->name('admin.get-all-user-list');
+    Route::post('/user-requests',[AdminLoanController::class, 'store']); // API 1 — Create
+    Route::get('/user-requests',[AdminLoanController::class, 'index']); // API 2 — List
+    Route::patch('/user-requests/{id}/status',[AdminLoanController::class, 'updateStatus']); // API 3 — Approv
     Route::get('/get-name-declaration', [AdminLoanController::class, 'get_name_declaration_document']);
     Route::post('/run-rule-engine', [AdminLoanController::class, 'rule_engine']);
     Route::post('/lender-consent', [AdminLoanController::class, 'lender_consent_acceptance']);

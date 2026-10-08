@@ -244,6 +244,52 @@ class ProductController extends Controller
         }
     }
 
+    /**
+     * Toggle approve_multi (true <-> false) by id OR model_unq
+     * URL: /product-models/toggle-approve-multi/{key}
+     * Example: 
+     *   /product-models/toggle-approve-multi/5           (by id)
+     *   /product-models/toggle-approve-multi/MODEL-001   (by model_unq)
+     */
+    public function toggleApproveMulti(Request $request, $key)
+    {
+        // Find by id first, if not found then by model_unq
+        $product = ProductModel::where('id', $key)
+                    ->orWhere('model_unq', $key)
+                    ->first();
+
+        if (!$product) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Product model not found',
+            ], 404);
+        }
+
+        try {
+            $product->approve_multi = !$product->approve_multi;
+            $product->modified_by   = auth()->id() ?? null;
+            $product->ip            = $request->ip();
+            $product->save();
+
+            return response()->json([
+                'status'  => true,
+                'message' => 'approve_multi toggled successfully',
+                'data'    => [
+                    'id'            => $product->id,
+                    'model_unq'     => $product->model_unq,
+                    'approve_multi' => (bool) $product->approve_multi,
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Something went wrong',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function get_product_type_list_b2c(Request $request)
     {
         $product_list = [

@@ -24,6 +24,8 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use App\Http\Controllers\HelperController;
+use App\Models\DealerShops;
+
 
 class LoanMasterExportController extends Controller
 {
@@ -1236,5 +1238,908 @@ class LoanMasterExportController extends Controller
         }
 
         return '';
+    }
+
+    // public function posexport(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'year'  => 'nullable|integer',
+    //         'month' => 'nullable|integer|min:1|max:12',
+    //         'fin_ids' => 'required|string',   // Comma-separated FIN IDs
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return $this->send_response('failed', $validator->errors()->first(), 422);
+    //     }
+
+    //     ini_set('memory_limit', '1024M');
+    //     ini_set('max_execution_time', 600);
+
+    //     $tz = 'Asia/Kolkata';
+    //     $year  = (int) ($request->input('year') ?: 2026);
+    //     $month = (int) ($request->input('month') ?: 9);   // Default September
+
+    //     // ✅ FIN IDs parse korun (comma-separated)
+    //     $finIds = array_map('trim', explode(',', $request->input('fin_ids')));
+    //     $finIds = array_filter($finIds);
+
+    //     if (empty($finIds)) {
+    //         return $this->send_response('failed', 'No FIN IDs provided', 422);
+    //     }
+
+    //     // ✅ Period: Sept 2026
+    //     $periodStart = Carbon::create($year, $month, 1, 0, 0, 0, $tz)->startOfMonth();
+    //     $periodEnd   = $periodStart->copy()->endOfMonth();
+
+    //     // ✅ Fetch loans for these FIN IDs
+    //     $loans = LoanBasicDetails::with([
+    //         'latestBorrowerKyc:id,borrower_id,name',
+    //         'repaymentSchedules:id,borrower_id,emi_amount,due_date,payment_status,principal_amount,interest_amount,payment_date',
+    //     ])
+    //     ->whereIn('borrower_id', $finIds)
+    //     ->select([
+    //         'id',
+    //         'borrower_id',
+    //         'loan_amount',
+    //         'loan_term',
+    //         'status',
+    //         'created_at',
+    //     ])
+    //     ->orderBy('borrower_id')
+    //     ->get();
+
+    //     if ($loans->isEmpty()) {
+    //         return $this->send_response('success', 'No records found', 200, []);
+    //     }
+
+    //     // ✅ Prepare rows
+    //     $rows = [];
+
+    //     foreach ($loans as $loan) {
+    //         $kyc       = $loan->latestBorrowerKyc;
+    //         $schedules = $loan->repaymentSchedules;
+
+    //         // First schedule → EMI amount
+    //         $firstSched = $schedules->sortBy('due_date')->first();
+    //         $emiAmount  = $firstSched?->emi_amount ?? '';
+
+    //         // No of EMIs paid → Count PAID
+    //         $noOfEmiPaid = $schedules
+    //             ->filter(fn($s) => strtoupper($s->payment_status) === 'PAID')
+    //             ->count();
+
+    //         // POS Amount → Sum of UNPAID principal
+    //         $posAmount = $schedules
+    //             ->filter(fn($s) => strtoupper($s->payment_status) === 'UNPAID')
+    //             ->sum(fn($s) => (float) ($s->principal_amount ?? 0));
+
+    //         $rows[] = [
+    //             'fin_id'         => $loan->borrower_id,
+    //             'borrower_name'  => $kyc?->name ?? '',
+    //             'loan_amount'    => $loan->loan_amount,
+    //             'emi_amount'     => $emiAmount,
+    //             'tenure'         => $loan->loan_term,
+    //             'no_of_emi_paid' => $noOfEmiPaid,
+    //             'pos_amount'     => round($posAmount, 2),
+    //         ];
+    //     }
+
+    //     // ✅ Sort by FIN ID
+    //     usort($rows, fn($a, $b) => strcmp($a['fin_id'], $b['fin_id']));
+
+    //     // ✅ Build Excel
+    //     return $this->buildExcel($rows, $year, $month);
+    // }
+
+    public function posexport(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'year'    => 'nullable|integer',
+            'month'   => 'nullable|integer|min:1|max:12',
+            'fin_ids' => 'required|string',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->send_response('failed', $validator->errors()->first(), 422);
+        }
+
+        ini_set('memory_limit', '1024M');
+        ini_set('max_execution_time', 600);
+
+        $tz    = 'Asia/Kolkata';
+        $year  = (int) ($request->input('year') ?: 2026);
+        $month = (int) ($request->input('month') ?: 9);
+
+        // ✅ Parse FIN IDs
+        $finIds = array_map('trim', explode(',', $request->input('fin_ids')));
+        $finIds = array_filter($finIds);
+
+        if (empty($finIds)) {
+            return $this->send_response('failed', 'No FIN IDs provided', 422);
+        }
+
+        // ✅ Fetch loans
+        $loans = LoanBasicDetails::with([
+            'latestBorrowerKyc:id,borrower_id,name',
+            'currentLoanScheme:id,borrower_id,iot,interest',
+            'repaymentSchedules:id,borrower_id,emi_amount,due_date,payment_status,principal_amount,interest_amount,payment_date',
+        ])
+        ->whereIn('borrower_id', $finIds)
+        ->select([
+            'id',
+            'borrower_id',
+            'loan_amount',
+            'loan_term',
+            'status',
+            'created_at',
+        ])
+        ->get();
+
+        if ($loans->isEmpty()) {
+            return $this->send_response('success', 'No records found', 200, []);
+        }
+
+        // ✅ Prepare rows
+        $rows = [];
+
+        foreach ($loans as $loan) {
+            $kyc           = $loan->latestBorrowerKyc;
+            $currentScheme = $loan->currentLoanScheme;
+            $schedules     = $loan->repaymentSchedules;
+
+            // ✅ Loan Amount = loan_amount + iot (same as Loan Master report)
+            $loanAmount = (float) $loan->loan_amount + (float) ($currentScheme?->iot ?? 0);
+
+            // ✅ EMI Amount — FIRST schedule (ascending order)
+            $firstSched = $schedules->sortBy('due_date')->first();
+            $emiAmount  = $firstSched?->emi_amount ?? '';
+
+            // ✅ No of EMIs paid → Count PAID
+            $noOfEmiPaid = $schedules
+                ->filter(fn($s) => strtoupper($s->payment_status) === 'PAID')
+                ->count();
+
+            // ✅ POS Amount → Sum of UNPAID principal
+            $posAmount = $schedules
+                ->filter(fn($s) => strtoupper($s->payment_status) === 'UNPAID')
+                ->sum(fn($s) => (float) ($s->principal_amount ?? 0));
+
+            $rows[] = [
+                'fin_id'         => $loan->borrower_id,
+                'borrower_name'  => $kyc?->name ?? '',
+                'loan_amount'    => $loanAmount,           // ✅ loan_amount + iot
+                'emi_amount'     => $emiAmount,            // ✅ First EMI
+                'tenure'         => $loan->loan_term,
+                'no_of_emi_paid' => $noOfEmiPaid,
+                'pos_amount'     => round($posAmount, 2),
+            ];
+        }
+
+        // ✅ Sort by FIN ID
+        usort($rows, fn($a, $b) => strcmp($a['fin_id'], $b['fin_id']));
+
+        // ✅ Build Excel
+        return $this->buildExcel($rows, $year, $month);
+    }
+
+    private function buildExcel(array $rows, int $year, int $month): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('POS Data');
+
+        // Headers
+        $headers = [
+            'S. No',
+            'FIN ID',
+            'Borrower name',
+            'Loan amount',
+            'EMI amount',
+            'Tenure',
+            'No of emi paid',
+            'POS amount',
+        ];
+
+        $colCount = count($headers);
+        $lastCol  = Coordinate::stringFromColumnIndex($colCount);
+
+        // Write headers
+        foreach ($headers as $i => $header) {
+            $col = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}1", $header);
+            $sheet->getColumnDimension($col)->setWidth(18);
+        }
+
+        // Header style
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'color' => ['argb' => 'FFFFFFFF'],
+                'name'  => 'Arial',
+                'size'  => 11,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF1F4E79'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(24);
+
+        // Data rows
+        $rowIdx = 2;
+        $serial = 1;
+
+        foreach ($rows as $row) {
+            $sheet->setCellValue("A{$rowIdx}", $serial++);
+            $sheet->setCellValue("B{$rowIdx}", $row['fin_id']);
+            $sheet->setCellValue("C{$rowIdx}", $row['borrower_name']);
+            $sheet->setCellValue("D{$rowIdx}", $row['loan_amount']);
+            $sheet->setCellValue("E{$rowIdx}", $row['emi_amount']);
+            $sheet->setCellValue("F{$rowIdx}", $row['tenure']);
+            $sheet->setCellValue("G{$rowIdx}", $row['no_of_emi_paid']);
+            $sheet->setCellValue("H{$rowIdx}", $row['pos_amount']);
+
+            // Alternate row shading
+            if ($rowIdx % 2 === 0) {
+                $sheet->getStyle("A{$rowIdx}:{$lastCol}{$rowIdx}")
+                    ->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF0F4FA');
+            }
+
+            $rowIdx++;
+        }
+
+        // Borders
+        if ($rowIdx > 2) {
+            $sheet->getStyle("A1:{$lastCol}" . ($rowIdx - 1))
+                ->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()->setRGB('BDD7EE');
+        }
+
+        $sheet->freezePane('A2');
+
+        // Filename
+        $monthLabel = date('M', mktime(0, 0, 0, $month, 1));
+        $filename   = "POS_Data_Report_{$monthLabel}_{$year}_" . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    // public function portexport(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'year'  => 'nullable|integer',
+    //         'month' => 'nullable|integer|min:1|max:12',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return $this->send_response('failed', $validator->errors()->first(), 422);
+    //     }
+
+    //     ini_set('memory_limit', '1024M');
+    //     ini_set('max_execution_time', 600);
+
+    //     $tz = 'Asia/Kolkata';
+
+    //     // ✅ Months: April 2026 → September 2026
+    //     $months = [
+    //         ['year' => 2026, 'month' => 4, 'label' => "April'26"],
+    //         ['year' => 2026, 'month' => 5, 'label' => "May'26"],
+    //         ['year' => 2026, 'month' => 6, 'label' => "June'26"],
+    //         ['year' => 2026, 'month' => 7, 'label' => "Jul'26"],
+    //         ['year' => 2026, 'month' => 8, 'label' => "Aug'26"],
+    //         ['year' => 2026, 'month' => 9, 'label' => "Sep'26"],
+    //     ];
+
+    //     $rows = [];
+
+    //     foreach ($months as $m) {
+    //         $start = Carbon::create($m['year'], $m['month'], 1, 0, 0, 0, $tz)->startOfMonth();
+    //         $end   = $start->copy()->endOfMonth();
+
+    //         // ✅ 1. Loan Amount = sum(loan_amount + iot) where disbursement_date in month
+    //         $loanAmount = DB::table('disbursement_details as dd')
+    //             ->join('loan_basic_details as lbd', 'dd.borrower_id', '=', 'lbd.id')
+    //             ->leftJoin('borrower_loan_schemes as bls', function ($j) {
+    //                 $j->on('bls.borrower_id', '=', 'lbd.id')
+    //                   ->where('bls.is_current', true);
+    //             })
+    //             ->whereBetween('dd.disbursement_date', [$start, $end])
+    //             ->sum(DB::raw('lbd.loan_amount + COALESCE(bls.iot, 0)'));
+
+    //         // ✅ 2. Disbursed Amount = sum(disbursement_amount) where disbursement_date in month
+    //         $disbursedAmount = DB::table('disbursement_details')
+    //             ->whereBetween('disbursement_date', [$start, $end])
+    //             ->sum('disbursement_amount');
+
+    //         // ✅ 3. Principal Outstanding = sum(UNPAID principal_amount) up to month-end
+    //         $principalOutstanding = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'UNPAID')
+    //             ->where('due_date', '<=', $end)
+    //             ->sum('principal_amount');
+
+    //         // ✅ 4. Number of EMI collected = count(PAID) where payment_date in month
+    //         $emiCollectedCount = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'PAID')
+    //             ->whereBetween('payment_date', [$start, $end])
+    //             ->count();
+
+    //         // ✅ 5. EMI Collected (Amount) = sum(emi_amount) where PAID + payment_date in month
+    //         $emiCollectedAmount = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'PAID')
+    //             ->whereBetween('payment_date', [$start, $end])
+    //             ->sum('emi_amount');
+
+    //         // ✅ 6. Loan Closed Count = count(status = 'CLOSED') where updated_at in month
+    //         $loanClosedCount = DB::table('loan_basic_details')
+    //             ->where('status', 'CLOSED')
+    //             ->whereBetween('updated_at', [$start, $end])
+    //             ->count();
+
+    //         $rows[] = [
+    //             'month'                 => $m['label'],
+    //             'loan_amount'           => round((float) $loanAmount, 2),
+    //             'disbursed_amount'      => round((float) $disbursedAmount, 2),
+    //             'principal_outstanding' => round((float) $principalOutstanding, 2),
+    //             'no_of_emi_collected'   => (int) $emiCollectedCount,
+    //             'emi_collected_amount'  => round((float) $emiCollectedAmount, 2),
+    //             'loan_closed_count'     => (int) $loanClosedCount,
+    //         ];
+    //     }
+
+    //     return $this->portbuildExcel($rows);
+    // }
+
+
+    // =========================================================================
+    // ENTRY POINT — Portfolio Cut Report
+    // =========================================================================
+    // public function portexport(Request $request)
+    // {
+    //     ini_set('memory_limit', '1024M');
+    //     ini_set('max_execution_time', 600);
+
+    //     $tz = 'Asia/Kolkata';
+
+    //     // ✅ Step 1 — Find first disbursement month
+    //     $firstDisbursement = DB::table('disbursement_details')
+    //         ->whereNotNull('disbursement_date')
+    //         ->orderBy('disbursement_date', 'asc')
+    //         ->value('disbursement_date');
+
+    //     if (!$firstDisbursement) {
+    //         return $this->send_response('success', 'No disbursement records found', 200, []);
+    //     }
+
+    //     // ✅ Step 2 — Find last disbursement month
+    //     $lastDisbursement = DB::table('disbursement_details')
+    //         ->whereNotNull('disbursement_date')
+    //         ->orderBy('disbursement_date', 'desc')
+    //         ->value('disbursement_date');
+
+    //     $firstDisbDate = Carbon::parse($firstDisbursement, $tz)->startOfMonth();
+    //     $lastDisbDate  = Carbon::parse($lastDisbursement, $tz)->startOfMonth();
+
+    //     // ✅ Step 3 — Generate months dynamically (first → last disbursement)
+    //     $months = [];
+    //     $cursor = $firstDisbDate->copy();
+
+    //     while ($cursor->lte($lastDisbDate)) {
+    //         $months[] = [
+    //             'year'  => $cursor->year,
+    //             'month' => $cursor->month,
+    //             'label' => $cursor->format('M') . "'" . $cursor->format('y'),  // e.g., Sep'24
+    //         ];
+    //         $cursor->addMonth();
+    //     }
+
+    //     // ✅ Step 4 — Build rows (same structure as commented code)
+    //     $rows = [];
+
+    //     foreach ($months as $m) {
+    //         $start = Carbon::create($m['year'], $m['month'], 1, 0, 0, 0, $tz)->startOfMonth();
+    //         $end   = $start->copy()->endOfMonth();
+
+    //         // ✅ 1. Loan Amount = sum(loan_amount + iot) where disbursement_date in month
+    //         // $loanAmount = DB::table('disbursement_details as dd')
+    //         //     ->join('loan_basic_details as lbd', 'dd.borrower_id', '=', 'lbd.id')
+    //         //     ->leftJoin('borrower_loan_schemes as bls', function ($j) {
+    //         //         $j->on('bls.borrower_id', '=', 'lbd.id')
+    //         //         ->where('bls.is_current', true);
+    //         //     })
+    //         //     ->whereBetween('dd.disbursement_date', [$start, $end])
+    //         //     ->sum(DB::raw('lbd.loan_amount + COALESCE(bls.iot, 0)'));
+
+    //         $loanAmount = DB::table('loan_basic_details as lbd')
+    //         ->leftJoin('borrower_loan_schemes as bls', function ($j) {
+    //             $j->on('bls.borrower_id', '=', 'lbd.id')
+    //             ->where('bls.is_current', true);
+    //         })
+    //         ->whereBetween('lbd.created_at', [$start, $end])           // ✅ Correct
+    //         ->sum(DB::raw('lbd.loan_amount + COALESCE(bls.iot, 0)'));
+
+    //         // ✅ 2. Disbursed Amount = sum(disbursement_amount) where disbursement_date in month
+    //         $disbursedAmount = DB::table('disbursement_details')
+    //             ->whereBetween('disbursement_date', [$start, $end])
+    //             ->sum('disbursement_amount');
+
+    //         // ✅ 3. Principal Outstanding = sum(UNPAID principal_amount) up to month-end
+    //         $principalOutstanding = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'UNPAID')
+    //             ->where('due_date', '<=', $end)
+    //             ->sum('principal_amount');
+
+    //         // ✅ 4. Number of EMI collected = count(PAID) where payment_date in month
+    //         $emiCollectedCount = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'PAID')
+    //             ->whereBetween('payment_date', [$start, $end])
+    //             ->count();
+
+    //         // ✅ 5. EMI Collected (Amount) = sum(emi_amount) where PAID + payment_date in month
+    //         $emiCollectedAmount = DB::table('borrower_repayment_schedules')
+    //             ->where('payment_status', 'PAID')
+    //             ->whereBetween('payment_date', [$start, $end])
+    //             ->sum('emi_amount');
+
+    //         // ✅ 6. Loan Closed Count = count(status = 'CLOSED') where updated_at in month
+    //         $loanClosedCount = DB::table('loan_basic_details')
+    //             ->where('status', 'CLOSED')
+    //             ->whereBetween('updated_at', [$start, $end])
+    //             ->count();
+
+    //         $rows[] = [
+    //             'month'                 => $m['label'],
+    //             'loan_amount'           => round((float) $loanAmount, 2),
+    //             'disbursed_amount'      => round((float) $disbursedAmount, 2),
+    //             'principal_outstanding' => round((float) $principalOutstanding, 2),
+    //             'no_of_emi_collected'   => (int) $emiCollectedCount,
+    //             'emi_collected_amount'  => round((float) $emiCollectedAmount, 2),
+    //             'loan_closed_count'     => (int) $loanClosedCount,
+    //         ];
+    //     }
+
+    //     return $this->portbuildExcel($rows);
+    // }
+
+    public function portexport(Request $request)
+    {
+        ini_set('memory_limit', '1024M');
+        ini_set('max_execution_time', 600);
+
+        $tz = 'Asia/Kolkata';
+
+        // First + Last disbursement month
+        $firstDisbursement = DB::table('disbursement_details')
+            ->whereNotNull('disbursement_date')
+            ->orderBy('disbursement_date', 'asc')
+            ->value('disbursement_date');
+
+        if (!$firstDisbursement) {
+            return $this->send_response('success', 'No disbursement records found', 200, []);
+        }
+
+        $lastDisbursement = DB::table('disbursement_details')
+            ->whereNotNull('disbursement_date')
+            ->orderBy('disbursement_date', 'desc')
+            ->value('disbursement_date');
+
+        $firstDisbDate = Carbon::parse($firstDisbursement, $tz)->startOfMonth();
+        $lastDisbDate  = Carbon::parse($lastDisbursement, $tz)->startOfMonth();
+
+        // Generate months
+        $months = [];
+        $cursor = $firstDisbDate->copy();
+
+        while ($cursor->lte($lastDisbDate)) {
+            $months[] = [
+                'year'  => $cursor->year,
+                'month' => $cursor->month,
+                'label' => $cursor->format('M') . "'" . $cursor->format('y'),
+            ];
+            $cursor->addMonth();
+        }
+
+        $rows = [];
+
+        foreach ($months as $m) {
+            $start = Carbon::create($m['year'], $m['month'], 1, 0, 0, 0, $tz)->startOfMonth();
+            $end   = $start->copy()->endOfMonth();
+
+            // ✅ 1. Loan Amount — Sudhu loan_amount (created_at based)
+            $loanAmount = DB::table('loan_basic_details as lbd')
+                ->whereBetween('lbd.created_at', [$start, $end])
+                ->sum('lbd.loan_amount');
+
+            // ✅ 2. Sanction Amount — same logic as dashboard
+            // Step A — Get disbursed borrower IDs for this month
+            $disbursedBorrowerIds = DB::table('disbursement_details')
+                ->whereBetween('disbursement_date', [$start, $end])
+                ->pluck('borrower_id')
+                ->unique()
+                ->values()
+                ->all();
+
+            // Step B — Loan amount sum (only DISBURSED status)
+            $totalDisbursedLoanAmountOnly = (float) DB::table('loan_basic_details')
+                ->whereIn('id', $disbursedBorrowerIds)
+                ->where('status', 'DISBURSED')
+                ->sum('loan_amount');
+
+            // Step C — IOT sum (is_current = true)
+            $totalIotAmount = (float) DB::table('borrower_loan_schemes')
+                ->whereIn('borrower_id', $disbursedBorrowerIds)
+                ->where('is_current', true)
+                ->sum('iot');
+
+            // Step D — Total Sanctioned Amount
+            $sanctionAmount = $totalDisbursedLoanAmountOnly + $totalIotAmount;
+
+            // ✅ 3. Disbursed Amount — disbursement_date based
+            $disbursedAmount = DB::table('disbursement_details')
+                ->whereBetween('disbursement_date', [$start, $end])
+                ->sum('disbursement_amount');
+
+            // ✅ 4. Principal Outstanding
+            $principalOutstanding = DB::table('borrower_repayment_schedules')
+                ->where('payment_status', 'UNPAID')
+                ->where('due_date', '<=', $end)
+                ->sum('principal_amount');
+
+            // ✅ 5. Number of EMI collected
+            $emiCollectedCount = DB::table('borrower_repayment_schedules')
+                ->where('payment_status', 'PAID')
+                ->whereBetween('payment_date', [$start, $end])
+                ->count();
+
+            // ✅ 6. EMI Collected (Amount)
+            $emiCollectedAmount = DB::table('borrower_repayment_schedules')
+                ->where('payment_status', 'PAID')
+                ->whereBetween('payment_date', [$start, $end])
+                ->sum('emi_amount');
+
+            // ✅ 7. Loan Closed Count
+            $loanClosedCount = DB::table('loan_basic_details')
+                ->where('status', 'CLOSED')
+                ->whereBetween('updated_at', [$start, $end])
+                ->count();
+
+            $rows[] = [
+                'month'                 => $m['label'],
+                'loan_amount'           => round((float) $loanAmount, 2),
+                'sanction_amount'       => round((float) $sanctionAmount, 2),
+                'disbursed_amount'      => round((float) $disbursedAmount, 2),
+                'principal_outstanding' => round((float) $principalOutstanding, 2),
+                'no_of_emi_collected'   => (int) $emiCollectedCount,
+                'emi_collected_amount'  => round((float) $emiCollectedAmount, 2),
+                'loan_closed_count'     => (int) $loanClosedCount,
+            ];
+        }
+
+        return $this->portbuildExcel($rows);
+    }
+
+    private function portbuildExcel(array $rows)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Portfolio Cut');
+
+        $headers = [
+            'S. No',
+            'Monthwise',
+            'Loan Amount',
+            'Sanction Amount',              // ✅ NEW
+            'Disbursed Amount',
+            'Principal Outstanding',
+            'Number of EMI collected',
+            'EMI Collected (Amount)',
+            'Loan Closed (No. Only)',
+        ];
+
+        $colCount = count($headers);
+        $lastCol  = Coordinate::stringFromColumnIndex($colCount);
+
+        // ✅ Headers
+        foreach ($headers as $i => $header) {
+            $col = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}1", $header);
+            $sheet->getColumnDimension($col)->setWidth(24);
+        }
+
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+            'font'      => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF'], 'name' => 'Arial', 'size' => 11],
+            'fill'      => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF1F4E79']],
+            'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER, 'wrapText' => true],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(30);
+
+        // ✅ Data rows
+        $rowIdx = 2;
+        $serial = 1;
+
+        foreach ($rows as $row) {
+            $sheet->setCellValue("A{$rowIdx}", $serial++);
+            $sheet->setCellValue("B{$rowIdx}", $row['month']);
+            $sheet->setCellValue("C{$rowIdx}", $row['loan_amount']);
+            $sheet->setCellValue("D{$rowIdx}", $row['sanction_amount']);        // ✅ NEW
+            $sheet->setCellValue("E{$rowIdx}", $row['disbursed_amount']);
+            $sheet->setCellValue("F{$rowIdx}", $row['principal_outstanding']);
+            $sheet->setCellValue("G{$rowIdx}", $row['no_of_emi_collected']);
+            $sheet->setCellValue("H{$rowIdx}", $row['emi_collected_amount']);
+            $sheet->setCellValue("I{$rowIdx}", $row['loan_closed_count']);
+
+            // ✅ Number format for currency columns
+            $sheet->getStyle("C{$rowIdx}:F{$rowIdx}")->getNumberFormat()->setFormatCode('#,##0.00');
+            $sheet->getStyle("H{$rowIdx}")->getNumberFormat()->setFormatCode('#,##0.00');
+
+            if ($rowIdx % 2 === 0) {
+                $sheet->getStyle("A{$rowIdx}:{$lastCol}{$rowIdx}")
+                    ->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF0F4FA');
+            }
+
+            $rowIdx++;
+        }
+
+        // ✅ Borders
+        if ($rowIdx > 2) {
+            $sheet->getStyle("A1:{$lastCol}" . ($rowIdx - 1))
+                ->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()->setRGB('BDD7EE');
+        }
+
+        $sheet->freezePane('A2');
+
+        // ✅ Filename
+        $filename = 'Portfolio_Cut_Report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
+    }
+
+    public function dealerexport(Request $request)
+    {
+        ini_set('memory_limit', '1024M');
+        ini_set('max_execution_time', 600);
+
+        // ✅ Step 1 — Get all active dealers
+        $dealers = Dealer::where('is_deleted', false)
+            ->select([
+                'id',
+                'dealer_unq',
+                'name',
+                'mobile',
+                'email',
+                'address_line_1',
+                'address_line_2',
+                'landmark',
+                'city',
+                'state',
+                'pincode',
+                'longitude',
+                'latitude',
+            ])
+            ->orderBy('id', 'asc')
+            ->get();
+
+        if ($dealers->isEmpty()) {
+            return $this->send_response('success', 'No dealers found', 200, []);
+        }
+
+        $dealerIds = $dealers->pluck('id')->toArray();
+
+        // ✅ Step 2 — Bulk load active shops (grouped by dealer_id)
+        // $shops = DealerShops::whereIn('dealer_id', $dealerIds)
+        //     ->where('status', 'active')
+        //     ->orderBy('dealer_id')
+        //     ->orderBy('id')
+        //     ->get(['id', 'dealer_id', 'shop_name', 'longitude', 'latitude', 'address'])
+        //     ->groupBy('dealer_id');
+
+        $shops = DealerShops::whereIn('dealer_id', $dealerIds)
+            ->whereRaw('LOWER(TRIM(status)) = ?', ['active'])   // Case-insensitive + trim
+            ->orderBy('dealer_id')
+            ->orderBy('id')
+            ->get(['id', 'dealer_id', 'shop_name', 'longitude', 'latitude', 'address'])
+            ->groupBy('dealer_id');
+
+        // ✅ Step 3 — Build rows
+        $rows   = [];
+        $serial = 1;
+
+        foreach ($dealers as $dealer) {
+            $dealerShops = $shops->get($dealer->id, collect());
+
+            // ✅ Main lat/lan — first active shop OR dealer's own location
+            $firstShop = $dealerShops->first();
+
+            $mainLat = $firstShop?->latitude  ?? $dealer->latitude  ?? '';
+            $mainLan = $firstShop?->longitude ?? $dealer->longitude ?? '';
+
+            // ✅ Address — prefer dealer address_line_1 + address_line_2
+            $addressParts = array_filter([
+                $dealer->address_line_1,
+                $dealer->address_line_2,
+            ]);
+            $address = !empty($addressParts)
+                ? implode(', ', $addressParts)
+                : ($firstShop?->address ?? '');
+
+            // ✅ Additional shops → Location 1, 2, 3
+            $location1 = $location2 = $location3 = '';
+
+            $remainingShops = $dealerShops->slice(1)->values();
+
+            if ($remainingShops->count() >= 1) {
+                $s = $remainingShops->get(0);
+                $location1 = ($s->latitude && $s->longitude)
+                    ? "{$s->latitude} / {$s->longitude}"
+                    : '';
+            }
+            if ($remainingShops->count() >= 2) {
+                $s = $remainingShops->get(1);
+                $location2 = ($s->latitude && $s->longitude)
+                    ? "{$s->latitude} / {$s->longitude}"
+                    : '';
+            }
+            if ($remainingShops->count() >= 3) {
+                $s = $remainingShops->get(2);
+                $location3 = ($s->latitude && $s->longitude)
+                    ? "{$s->latitude} / {$s->longitude}"
+                    : '';
+            }
+
+            $rows[] = [
+                'sl'         => $serial++,
+                'dealer_unq' => $dealer->dealer_unq ?? '',
+                'name'       => $dealer->name ?? '',
+                'mobile'     => $dealer->mobile ?? '',
+                'email'      => $dealer->email ?? '',
+                'address'    => $address,
+                'lat'        => $mainLat,
+                'lan'        => $mainLan,
+                'location_1' => $location1,
+                'location_2' => $location2,
+                'location_3' => $location3,
+            ];
+        }
+
+        return $this->dealerbuildExcel($rows);
+    }
+
+    private function dealerbuildExcel(array $rows)
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet       = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Dealer Shops');
+
+        $headers = [
+            'Sl',
+            'Dealer Unq',
+            'Name',
+            'Mobile',
+            'Email',
+            'Address',
+            'Lat',
+            'Lan',
+            'Location 1',
+            'Location 2',
+            'Location 3',
+        ];
+
+        $colCount = count($headers);
+        $lastCol  = Coordinate::stringFromColumnIndex($colCount);
+
+        // Column widths
+        $widths = [
+            1  => 6,
+            2  => 18,
+            3  => 30,
+            4  => 15,
+            5  => 30,
+            6  => 45,
+            7  => 14,
+            8  => 14,
+            9  => 26,
+            10 => 26,
+            11 => 26,
+        ];
+
+        foreach ($headers as $i => $header) {
+            $col = Coordinate::stringFromColumnIndex($i + 1);
+            $sheet->setCellValue("{$col}1", $header);
+            $sheet->getColumnDimension($col)->setWidth($widths[$i + 1] ?? 18);
+        }
+
+        // Header style
+        $sheet->getStyle("A1:{$lastCol}1")->applyFromArray([
+            'font' => [
+                'bold'  => true,
+                'color' => ['argb' => 'FFFFFFFF'],
+                'name'  => 'Arial',
+                'size'  => 11,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FF1F4E79'],
+            ],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_CENTER,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(26);
+
+        // Data rows
+        $rowIdx = 2;
+
+        foreach ($rows as $row) {
+            $sheet->setCellValue("A{$rowIdx}", $row['sl']);
+            $sheet->setCellValue("B{$rowIdx}", $row['dealer_unq']);
+            $sheet->setCellValue("C{$rowIdx}", $row['name']);
+            $sheet->setCellValue("D{$rowIdx}", $row['mobile']);
+            $sheet->setCellValue("E{$rowIdx}", $row['email']);
+            $sheet->setCellValue("F{$rowIdx}", $row['address']);
+            $sheet->setCellValue("G{$rowIdx}", $row['lat']);
+            $sheet->setCellValue("H{$rowIdx}", $row['lan']);
+            $sheet->setCellValue("I{$rowIdx}", $row['location_1']);
+            $sheet->setCellValue("J{$rowIdx}", $row['location_2']);
+            $sheet->setCellValue("K{$rowIdx}", $row['location_3']);
+
+            if ($rowIdx % 2 === 0) {
+                $sheet->getStyle("A{$rowIdx}:{$lastCol}{$rowIdx}")
+                    ->getFill()->setFillType(Fill::FILL_SOLID)
+                    ->getStartColor()->setARGB('FFF0F4FA');
+            }
+
+            $sheet->getStyle("A{$rowIdx}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+            $rowIdx++;
+        }
+
+        if ($rowIdx > 2) {
+            $sheet->getStyle("A1:{$lastCol}" . ($rowIdx - 1))
+                ->getBorders()->getAllBorders()
+                ->setBorderStyle(Border::BORDER_THIN)
+                ->getColor()->setRGB('BDD7EE');
+
+            $sheet->setAutoFilter("A1:{$lastCol}1");
+        }
+
+        $sheet->freezePane('A2');
+
+        $filename = 'Dealer_Shops_Report_' . date('Ymd_His') . '.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }, $filename, [
+            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            'Cache-Control'       => 'max-age=0',
+        ]);
     }
 }
