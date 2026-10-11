@@ -10,6 +10,14 @@ return [
     'file_base_url' => env('GRAVITON_FILE_BASE_URL', 'http://13.205.48.55'),
     // 'file_secret'   => env('GRAVITON_FILE_SECRET', ''),
 
+    // ✅ KYC Document Types
+    'kyc_doc_types' => [
+        'aadhaar' => env('GRAVITON_KYC_AADHAAR_ID', 1),
+        'pan'     => env('GRAVITON_KYC_PAN_ID', 2),
+        'dl'      => env('GRAVITON_KYC_DL_ID', 3),
+        'voter'   => env('GRAVITON_KYC_VOTER_ID', 4),
+    ],
+
     'defaults' => [
         // .env theke
         'office_id'         => env('GRAVITON_OFFICE_ID', 1),

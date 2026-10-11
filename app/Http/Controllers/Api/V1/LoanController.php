@@ -445,6 +445,102 @@ class LoanController extends Controller
         // ], 200);
     }
 
+    // public function get_loan_status_by_product(Request $request)
+    // {
+    //     try {
+    //         $userId             = $request->user()->id;
+    //         $borrower_id        = $this->get_borrower_id($request->user()->id);
+
+    //         $is_case_rejected = LoanBasicDetails::where('user_id', $userId)
+    //             ->where('status', 'REJECTED')
+    //             ->where('updated_at', '>=', now()->subMonths(6))
+    //             ->exists(); // Returns true if a rejected case exists
+
+    //         if ($is_case_rejected) {
+    //             return $this->send_response('failed', "Your previous case was rejected within the last 6 months. You cannot proceed further.", 422);
+    //         }
+
+    //         if ($borrower_id == "Invalid") {
+    //             return response()->json([
+    //                 'status' => 'success',
+    //                 'is_loan_exist' => false,
+    //                 'step_details' => [
+    //                     'details' => "No applications"
+    //                 ],
+    //             ], 200);
+    //         }
+
+    //         if (!isset($request->product_id) || empty($request->product_id)) {
+
+    //             return $this->send_response('failed', "Product id is required", 422);
+    //         }
+
+    //         $isApplicationExist = LoanBasicDetails::where('user_id', $userId)
+    //             ->where('id', $borrower_id)
+    //             ->where('status', '<>', 'CLOSED')->first();
+    //         if (!$isApplicationExist) {
+    //             return response()->json([
+    //                 'status' => 'success',
+    //                 'is_loan_exist' => false,
+    //                 'step_details' => [
+    //                     'details' => "No applications"
+    //                 ],
+    //             ], 200);
+    //         }
+
+    //         if($isApplicationExist->status == 'CANCELLED') {                
+    //             return $this->send_response('failed', "Your application is on hold, please contact Finayo", 422);
+    //         }
+
+    //         $existing_application_steps = json_decode($isApplicationExist->loan_application_steps);
+
+    //         if (isset($request->product_id) && !empty($request->product_id)) {
+    //             if (!in_array($request->product_id, ["1", "2", "3", "4", "5", "6"])) {
+    //                 return $this->send_response('failed', "Please input valid product id", 422);
+    //             }
+
+    //             if ($isApplicationExist->product_id == $request->product_id) {
+
+    //                 return response()->json([
+    //                     'status' => 'success',
+    //                     'is_loan_exist' => true,
+    //                     'skip_coapplicant_guarantor' => $isApplicationExist->skip_coapplicant_guarantor,
+    //                     'step_details' => end($existing_application_steps),
+    //                 ], 200);
+    //             } else {
+    //                 if ($isApplicationExist->product_id == "1") {
+    //                     $existing_application_product = 'E-Rickshaw (L3)';
+    //                 } elseif ($isApplicationExist->product_id == "2") {
+    //                     $existing_application_product = 'E-Auto (L5)';
+    //                 } elseif ($isApplicationExist->product_id == "3") {
+    //                     $existing_application_product = 'E-Two Wheeler';
+    //                 } elseif ($isApplicationExist->product_id == "4") {
+    //                     $existing_application_product = 'Battery';
+    //                 } elseif ($isApplicationExist->product_id == "5") {
+    //                     $existing_application_product = 'EKA L5-3S';
+    //                 } elseif ($isApplicationExist->product_id == "6") {
+    //                     $existing_application_product = 'EKA L5-6S';
+    //                 }
+
+    //                 return response()->json([
+    //                     'status' => 'failed',
+    //                     'message' => 'There is an ongoing application for ' . $existing_application_product,
+    //                 ], 200);
+    //             }
+    //         }
+
+    //         return response()->json([
+    //             'status' => 'success',
+    //             'is_loan_exist' => true,
+    //             'skip_coapplicant_guarantor' => $isApplicationExist->skip_coapplicant_guarantor,
+    //             'step_details' => end($existing_application_steps),
+    //         ], 200);
+    //     } catch (Exception $e) {
+    //         return $this->send_response('failed', "Something went wrong, while fetching loan status", 422);
+    //     }
+    // }
+
+
     public function get_loan_status_by_product(Request $request)
     {
         try {
@@ -454,7 +550,7 @@ class LoanController extends Controller
             $is_case_rejected = LoanBasicDetails::where('user_id', $userId)
                 ->where('status', 'REJECTED')
                 ->where('updated_at', '>=', now()->subMonths(6))
-                ->exists(); // Returns true if a rejected case exists
+                ->exists();
 
             if ($is_case_rejected) {
                 return $this->send_response('failed', "Your previous case was rejected within the last 6 months. You cannot proceed further.", 422);
@@ -475,6 +571,50 @@ class LoanController extends Controller
                 return $this->send_response('failed', "Product id is required", 422);
             }
 
+            // =====================================================================
+            // ✅ NEW: Same logic as LoanBasicDetailsService::store()
+            // =====================================================================
+            $user = \App\Models\User::find($userId);
+            if (!$user) {
+                return $this->send_response('failed', "Invalid user", 422);
+            }
+
+            $applicationCount = LoanBasicDetails::where('user_id', $userId)->count();
+
+            // ---- approve_multi = true (max 3 applications) ----
+            if ($user->approve_multi) {
+
+                if ($applicationCount >= 3) {
+                    return $this->send_response(
+                        'failed',
+                        'Maximum 3 loan applications are allowed',
+                        422
+                    );
+                }
+
+                // Less than 3 → allow new loan (skip existing product mismatch check)
+                return response()->json([
+                    'status'             => 'success',
+                    'is_loan_exist'      => false,
+                    'approve_multi'      => true,
+                    'application_count'  => $applicationCount,
+                    'step_details'       => [
+                        'details' => "You can apply for a new loan",
+                    ],
+                ], 200);
+            }
+
+            // ---- approve_multi = false (single application only) ----
+            if ($applicationCount >= 1) {
+                return $this->send_response('failed', 'An application already exists', 422);
+            }
+            // =====================================================================
+            // ✅ END NEW BLOCK
+            // =====================================================================
+
+            // =====================================================================
+            // EXISTING LOGIC (unchanged)
+            // =====================================================================
             $isApplicationExist = LoanBasicDetails::where('user_id', $userId)
                 ->where('id', $borrower_id)
                 ->where('status', '<>', 'CLOSED')->first();
@@ -488,7 +628,7 @@ class LoanController extends Controller
                 ], 200);
             }
 
-            if($isApplicationExist->status == 'CANCELLED') {                
+            if($isApplicationExist->status == 'CANCELLED') {
                 return $this->send_response('failed', "Your application is on hold, please contact Finayo", 422);
             }
 

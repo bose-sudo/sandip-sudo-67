@@ -40,6 +40,7 @@ class GravitonFamilyMemberPushService
                 throw new \Exception("Borrower {$borrower->id} has no graviton_client_id");
             }
 
+            // ✅ Person + Occupation fetch
             if ($role === 'coapplicant') {
                 $person     = CoapplicantKyc::where('borrower_id', $borrower->borrower_id)->latest()->first();
                 $occupation = CoapplicantOccupation::where('borrower_id', $borrower->borrower_id)->latest()->first();
@@ -94,6 +95,7 @@ class GravitonFamilyMemberPushService
             ]);
 
             return $data;
+
         } catch (\Throwable $e) {
             $log->update([
                 'status'        => 'failed',
@@ -109,31 +111,118 @@ class GravitonFamilyMemberPushService
     }
 
     /**
-     * ✅ Build payload with hardcoded truncate
+     * ✅ Build payload — with all mapping fixes
      */
     protected function buildPayload(BorrowerKyc $borrower, $person, $occupation, string $role): array
     {
-        [$firstName, $lastName] = $this->splitName($person->name);
+        // ✅ Father name for fallback
+        $fatherName = $person->fs_name ?? $person->father_name ?? null;
+
+        // ✅ Split name — last name empty hole "So {fatherName}"
+        [$firstName, $lastName] = $this->splitName($person->name, $fatherName);
 
         $bid = $borrower->id;
 
-        $salutationId     = $this->ref->getId($bid, 'salutation', 'Mr.');
-        $genderId         = $this->ref->getId($bid, 'genderIdOptions', $person->gender ?? null, 'Male');
+        // ═══════════════════════════════════════════════════════
+        // Salutation — gender + marital status onujayi
+        // ═══════════════════════════════════════════════════════
+        $salutationKey = match (true) {
+            strtolower(trim($person->gender ?? '')) === 'male' => 'Mr.',
+            strtolower(trim($person->gender ?? '')) === 'female' && strtolower(trim($person->marital_status ?? '')) === 'married' => 'Mrs.',
+            strtolower(trim($person->gender ?? '')) === 'female' => 'Ms.',
+            default => 'Mr.',
+        };
+
+        $salutationId = $this->ref->getId($bid, 'salutation', $salutationKey);
+        if (!$salutationId) {
+            $salutationId = $this->ref->getId($bid, 'salutation', 'Mr.');
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ Gender — relationship theke override
+        // ═══════════════════════════════════════════════════════
+        $relationship = strtoupper($person->relationship ?? $person->relation ?? '');
+        $genderFromSource = $person->gender ?? null;
+
+        $genderId = $this->ref->getId($bid, 'genderIdOptions', $genderFromSource, 'Male');
+
+        // ✅ Relationship "FATHER"/"HUSBAND"/etc. hole gender override
+        if (in_array($relationship, ['FATHER', 'HUSBAND', 'SON', 'BROTHER'])) {
+            $genderId = $this->ref->getId($bid, 'genderIdOptions', 'Male', 'Male');
+        } elseif (in_array($relationship, ['MOTHER', 'WIFE', 'DAUGHTER', 'SISTER'])) {
+            $genderId = $this->ref->getId($bid, 'genderIdOptions', 'Female', 'Female');
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // Other reference IDs
+        // ═══════════════════════════════════════════════════════
         $relationShipId   = $this->ref->getId($bid, 'relationShipIdOptions', null, 'Spouse');
-        $maritalStatusId  = $this->ref->getId($bid, 'maritalStatusIdOptions', null, 'Unmarried');
+        $maritalStatusId  = $this->ref->getId($bid, 'maritalStatusIdOptions', $person->marital_status ?? null, 'Unmarried');
         $professionId     = $this->ref->getId($bid, 'professionIdOptions', null, 'OTHER');
         $qualificationId  = $this->ref->getId($bid, 'qualificationIdOptions', null, 'GRADUATE');
         $legalFormId      = $this->ref->getId($bid, 'clientLegalFormOptions', null, 'INDIVIDUAL');
         $addressTypeId    = $this->ref->getId($bid, 'addressTypeOptions', null, 'Owned');
         $addressSubTypeId = $this->ref->getId($bid, 'addressSubTypeOptions', null, 'Current');
 
-        // ✅ Address split — unlimited support
+        // ═══════════════════════════════════════════════════════
+        // ✅ Address parsing — city, district, state, pincode
+        // ═══════════════════════════════════════════════════════
         $addressLine = trim((string) ($occupation->current_address ?? ''));
-        $addressParts = $this->splitAddress($addressLine);
 
-        // Postal code extract
-        $postalCode = $this->extractPostalCode($addressLine);
+        // ✅ Duplicate remove
+        $parts = array_filter(array_map('trim', explode(',', $addressLine)));
+        $parts = array_values(array_unique($parts));
 
+        // ✅ Trailing N/A remove
+        $parts = array_filter($parts, fn($p) => strtoupper($p) !== 'N/A');
+
+        // ✅ Rebuild address
+        $addressLine = implode(', ', $parts);
+
+        // ✅ India shudhu country field e rakho
+        $addressLine = str_ireplace(', India', '', $addressLine);
+
+        // ✅ Pincode — address theke parse
+        $postalCode = '000000';
+        if (preg_match('/(\d{6})/', $addressLine, $m)) {
+            $postalCode = $m[1];
+        }
+
+        // ✅ Address line split (max 100 chars each)
+        $addressLine1 = mb_substr($addressLine, 0, 100);
+        $addressLine2 = mb_strlen($addressLine) > 100 ? mb_substr($addressLine, 100, 100) : null;
+        $addressLine3 = mb_strlen($addressLine) > 200 ? mb_substr($addressLine, 200, 100) : null;
+
+        // ✅ City — address theke parse
+        $city = 'N/A';
+        if (preg_match('/,\s*([^,]+),\s*[^,]+,\s*\d{6}/', $addressLine, $m)) {
+            $city = trim($m[1]);
+        }
+
+        // ✅ District — address theke parse
+        $district = 'N/A';
+        if (preg_match('/,\s*([^,]+),\s*[^,]+,\s*[^,]+,\s*\d{6}/', $addressLine, $m)) {
+            $district = trim($m[1]);
+        }
+
+        // ✅ State — address theke parse
+        $state = 'N/A';
+        if (preg_match('/,\s*([^,]+),\s*\d{6}/', $addressLine, $m)) {
+            $state = trim($m[1]);
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ Age calculation
+        // ═══════════════════════════════════════════════════════
+        $age = null;
+        if (!empty($person->dob_date)) {
+            $dob = new \DateTime($person->dob_date);
+            $age = (new \DateTime())->diff($dob)->y;
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // ✅ Role-specific fields
+        // ═══════════════════════════════════════════════════════
         $roleFields = $role === 'coapplicant'
             ? [
                 'familyMemberTypeEnum' => 1,
@@ -158,18 +247,27 @@ class GravitonFamilyMemberPushService
             'dateOfBirth'          => $person->dob_date
                 ? date('d F Y', strtotime($person->dob_date))
                 : null,
-            'fathersName'          => $person->fs_name ?? $person->father_name ?? null,
+            'age'                  => $age,
+            'fathersName'          => $fatherName,
             'maritalStatusId'      => (int) $maritalStatusId,
             'professionId'         => (int) $professionId,
             'qualificationId'      => (int) $qualificationId,
             'legalFormId'          => (int) $legalFormId,
 
-            'isDependent'          => false,
-            'isFamily'             => false,
-            'livingWithApplicant'  => false,
+            // ═══════════════════════════════════════
+            // ✅ NEW — Category A fields
+            // ═══════════════════════════════════════
+            'middleName'           => $person->middle_name ?? null,
+            'motherName'           => $person->mother_name ?? null,
+            'emailAddress'         => $person->email ?? null,
+            'placeOfBirth'         => $person->place_of_birth ?? null,
+
+            'isDependent'          => (bool) ($person->is_dependent ?? false),
+            'isFamily'             => (bool) ($person->is_family ?? false),
+            'livingWithApplicant'  => (bool) ($person->living_with_applicant ?? false),
             'isConsolidate'        => false,
             'isIncludedInReport'   => true,
-            'personWithDisability' => false,
+            'personWithDisability' => (bool) ($person->person_with_disability ?? false),
             'isMobileVerified'     => (bool) ($person->is_verified_mobile ?? false),
 
             'clientNameJson' => [
@@ -184,21 +282,27 @@ class GravitonFamilyMemberPushService
             'locale'        => 'en',
             'dateFormat'    => 'dd MMMM yyyy',
 
+            // ═══════════════════════════════════════
+            // Address
+            // ═══════════════════════════════════════
             'address' => [[
-                'addressTypeId'    => (int) $addressTypeId,
-                'addressSubTypeId' => (int) $addressSubTypeId,
-                'addressLine1'     => $addressParts['line1'],   // ✅ Max 100
-                'addressLine2'     => $addressParts['line2'],   // ✅ Max 100
-                'addressLine3'     => $addressParts['line3'],   // ✅ Max 100
-                'landmark'         => $addressParts['landmark'], // ✅ Baki (unlimited)
-                'city'             => 'N/A',
-                'district'         => 'N/A',
-                'state'            => 'N/A',
-                'country'          => 'India',
-                'postalCode'       => $postalCode ?? '000000',
-                'isActive'         => true,
-                'locale'           => 'en',
-                'dateFormat'       => 'dd MMMM yyyy',
+                'addressTypeId'          => (int) $addressTypeId,
+                'addressSubTypeId'       => (int) $addressSubTypeId,
+                'addressLine1'           => $addressLine1 ?: 'N/A',
+                'addressLine2'           => $addressLine2 ?: null,
+                'addressLine3'           => $addressLine3 ?: null,
+                'landmark'               => $occupation->landmark ?? 'N/A',
+                'city'                   => $city,
+                'district'               => $district,
+                'state'                  => $state,
+                'country'                => 'India',
+                'postalCode'             => $postalCode,
+                'longitude'              => $occupation->longitude ?? null,
+                'latitude'               => $occupation->latitude ?? null,
+                'isCommunicationAddress' => (bool) ($occupation->is_communication ?? true),
+                'isActive'               => true,
+                'locale'                 => 'en',
+                'dateFormat'             => 'dd MMMM yyyy',
             ]],
 
             'kycData' => $this->buildKycData($person, $role),
@@ -256,33 +360,27 @@ class GravitonFamilyMemberPushService
     }
 
     /**
-     * ✅ Split name into first + last
+     * ✅ Split name — last name empty hole "So {fatherName}"
      */
-    // protected function splitName(?string $name): array
-    // {
-    //     $name = trim($name ?? '');
-    //     if (empty($name)) return ['', ''];
-    //     $parts = explode(' ', $name, 2);
-    //     return [$parts[0] ?? '', $parts[1] ?? ''];
-    // }
-
-    protected function splitName(?string $name): array
+    protected function splitName(?string $name, ?string $fatherName = null): array
     {
         $name = trim($name ?? '');
         if (empty($name)) {
             return ['N/A', 'N/A'];
         }
 
-        $parts = explode(' ', $name, 2);
+        $parts     = explode(' ', $name, 2);
         $firstName = trim($parts[0] ?? '');
         $lastName  = trim($parts[1] ?? '');
 
-        // ✅ Last name empty hole first name use koro
+        // ✅ Last name empty hole "So {fatherName}"
         if (empty($lastName)) {
-            $lastName = $firstName;
+            $lastName = !empty($fatherName)
+                ? 'So ' . trim($fatherName)
+                : $firstName;
         }
 
-        // ✅ First name empty hole last name use koro
+        // ✅ First name empty hole last name
         if (empty($firstName)) {
             $firstName = $lastName;
         }
@@ -291,7 +389,7 @@ class GravitonFamilyMemberPushService
     }
 
     /**
-     * ✅ Extract 6-digit postal code
+     * ✅ Extract postal code
      */
     protected function extractPostalCode(?string $address): ?string
     {
@@ -299,47 +397,5 @@ class GravitonFamilyMemberPushService
             return $m[1];
         }
         return null;
-    }
-
-    /**
-     * Split address into 3 lines + landmark (unlimited support)
-     *
-     * addressLine1 → first 100 chars
-     * addressLine2 → next 100 chars
-     * addressLine3 → next 100 chars
-     * landmark     → remaining (unlimited)
-     */
-    protected function splitAddress(string $address): array
-    {
-        $address = trim($address);
-
-        if (empty($address)) {
-            return [
-                'line1'    => 'N/A',
-                'line2'    => null,
-                'line3'    => null,
-                'landmark' => 'N/A',
-            ];
-        }
-
-        $length = strlen($address);
-
-        $line1 = substr($address, 0, 100);
-        $line2 = $length > 100 ? substr($address, 100, 100) : null;
-        $line3 = $length > 200 ? substr($address, 200, 100) : null;
-
-        // ✅ landmark max 255 chars (safe limit)
-        $landmark = 'N/A';
-        if ($length > 300) {
-            $remaining = substr($address, 300);
-            $landmark  = substr($remaining, 0, 255);  // ✅ Max 255
-        }
-
-        return [
-            'line1'    => $line1 ?: 'N/A',
-            'line2'    => $line2,
-            'line3'    => $line3,
-            'landmark' => $landmark,
-        ];
     }
 }

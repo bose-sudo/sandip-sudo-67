@@ -385,6 +385,76 @@ class AdminLoanController extends Controller
         
     }
 
+    // public function get_loan_status_by_product(Request $request) {
+    //     try {
+    //         $userId             = $request->user()->id;
+    //         if (!isset($request->borrower_id) || empty($request->borrower_id)) {
+    //             return $this->send_response("failed", "Borrower id is required", 422);
+    //         }
+
+    //         if(!isset($request->product_id) || empty($request->product_id)) {
+
+    //             return $this->send_response('failed', "Product id is required", 422);
+    //         }
+
+    //         $isApplicationExist = LoanBasicDetails::where('user_id', $userId)
+    //                                 ->where('id', $borrower_id)
+    //                                 ->where('status', '<>', 'CLOSED')->first();
+    //         if(!$isApplicationExist) {
+    //             return response()->json([
+    //                 'status' => 'success',
+    //                 'is_loan_exist' => false,
+    //                 'step_details' => [
+    //                     'details' => "No applications"
+    //                 ],
+    //             ], 200);
+    //         }
+
+    //         $existing_application_steps = json_decode($isApplicationExist->loan_application_steps);
+
+    //         if(isset($request->product_id) && !empty($request->product_id)) {
+    //             if(!in_array($request->product_id, ["1", "2", "3", "4"])) {
+    //                 return $this->send_response('failed', "Please input valid product id", 422);
+    //             }
+
+    //             if($isApplicationExist->product_id == $request->product_id) {
+
+    //                 return response()->json([
+    //                     'status' => 'success',
+    //                     'is_loan_exist' => true,
+    //                     'product_id' => $isApplicationExist->product_id,
+    //                     'skip_coapplicant_guarantor' => $isApplicationExist->skip_coapplicant_guarantor,
+    //                     'step_details' => end($existing_application_steps),
+    //                 ], 200);
+    //             } else {
+    //                 if ($isApplicationExist->product_id == "1") {
+    //                     $existing_application_product = 'E-Rickshaw (L3)';
+    //                 } elseif ($isApplicationExist->product_id == "2") {
+    //                     $existing_application_product = 'E-Auto (L5)';    
+    //                 } elseif ($isApplicationExist->product_id == "3") {
+    //                     $existing_application_product = 'E-Two Wheeler';    
+    //                 } elseif ($isApplicationExist->product_id == "4") {
+    //                     $existing_application_product = 'Battery';    
+    //                 }
+
+    //                 return response()->json([
+    //                     'status' => 'failed',
+    //                     'message' => 'There is an ongoing application for '. $existing_application_product,
+    //                 ], 200);
+    //             }
+    //         }
+
+    //         return response()->json([
+    //             'status' => 'success',
+    //             'is_loan_exist' => true,
+    //             'skip_coapplicant_guarantor' => $isApplicationExist->skip_coapplicant_guarantor,
+    //             'step_details' => end($existing_application_steps),
+    //         ], 200);
+    //     } catch(Exception $e) {
+    //         return $this->send_response('failed', "Something went wrong, while fetching loan status", 422);
+    //     }
+    // }
+
     public function get_loan_status_by_product(Request $request) {
         try {
             $userId             = $request->user()->id;
@@ -397,9 +467,56 @@ class AdminLoanController extends Controller
                 return $this->send_response('failed', "Product id is required", 422);
             }
 
+            // ✅ Fix: undefined variable
+            $borrower_id = $request->borrower_id;
+
+            // =====================================================================
+            // ✅ NEW: Same logic as LoanBasicDetailsService::store()
+            // =====================================================================
+            $user = \App\Models\User::find($userId);
+            if (!$user) {
+                return $this->send_response('failed', "Invalid user", 422);
+            }
+
+            $applicationCount = LoanBasicDetails::where('user_id', $userId)->count();
+
+            // ---- approve_multi = true (max 3 applications) ----
+            if ($user->approve_multi) {
+
+                if ($applicationCount >= 3) {
+                    return $this->send_response(
+                        'failed',
+                        'Maximum 3 loan applications are allowed',
+                        422
+                    );
+                }
+
+                // Less than 3 → allow new loan
+                return response()->json([
+                    'status'            => 'success',
+                    'is_loan_exist'     => false,
+                    'approve_multi'     => true,
+                    'application_count' => $applicationCount,
+                    'step_details'      => [
+                        'details' => "You can apply for a new loan"
+                    ],
+                ], 200);
+            }
+
+            // ---- approve_multi = false (single application only) ----
+            if ($applicationCount >= 1) {
+                return $this->send_response('failed', 'An application already exists', 422);
+            }
+            // =====================================================================
+            // ✅ END NEW BLOCK
+            // =====================================================================
+
+            // =====================================================================
+            // EXISTING LOGIC (unchanged)
+            // =====================================================================
             $isApplicationExist = LoanBasicDetails::where('user_id', $userId)
-                                    ->where('id', $borrower_id)
-                                    ->where('status', '<>', 'CLOSED')->first();
+                                        ->where('id', $borrower_id)
+                                        ->where('status', '<>', 'CLOSED')->first();
             if(!$isApplicationExist) {
                 return response()->json([
                     'status' => 'success',
@@ -430,11 +547,11 @@ class AdminLoanController extends Controller
                     if ($isApplicationExist->product_id == "1") {
                         $existing_application_product = 'E-Rickshaw (L3)';
                     } elseif ($isApplicationExist->product_id == "2") {
-                        $existing_application_product = 'E-Auto (L5)';    
+                        $existing_application_product = 'E-Auto (L5)';
                     } elseif ($isApplicationExist->product_id == "3") {
-                        $existing_application_product = 'E-Two Wheeler';    
+                        $existing_application_product = 'E-Two Wheeler';
                     } elseif ($isApplicationExist->product_id == "4") {
-                        $existing_application_product = 'Battery';    
+                        $existing_application_product = 'Battery';
                     }
 
                     return response()->json([
@@ -8323,7 +8440,7 @@ class AdminLoanController extends Controller
         }
     }
 
-     public function store(Request $request)
+    public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|integer|exists:users,id',
@@ -8331,11 +8448,12 @@ class AdminLoanController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validation error',
-                'errors'  => $validator->errors(),
-            ], 422);
+            return $this->send_response("failed", $validator->errors()->first(), 422);
+            // return response()->json([
+            //     'status'  => false,
+            //     'message' => 'Validation error',
+            //     'errors'  => $validator->errors(),
+            // ], 422);
         }
 
         // Prevent duplicate pending request
@@ -8359,7 +8477,7 @@ class AdminLoanController extends Controller
             ]);
 
             return response()->json([
-                'status'  => true,
+                'status'  => 'success',
                 'message' => 'User request created successfully',
                 'data'    => $userRequest,
             ], 201);
@@ -8394,7 +8512,7 @@ class AdminLoanController extends Controller
         $userRequests = $query->paginate($request->get('per_page', 10));
 
         return response()->json([
-            'status'  => true,
+            'status'  => 'success',
             'message' => 'User request list',
             'data'    => $userRequests,
         ], 200);
@@ -8413,11 +8531,12 @@ class AdminLoanController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json([
-                'status'  => false,
-                'message' => 'Validation error',
-                'errors'  => $validator->errors(),
-            ], 422);
+            return $this->send_response("failed", $validator->errors()->first(), 422);
+            // return response()->json([
+            //     'status'  => false,
+            //     'message' => 'Validation error',
+            //     'errors'  => $validator->errors(),
+            // ], 422);
         }
 
         $userRequest = UserRequest::find($id);
@@ -8448,7 +8567,7 @@ class AdminLoanController extends Controller
             DB::commit();
 
             return response()->json([
-                'status'  => true,
+                'status'  => 'success',
                 'message' => 'Status updated and user approve_multi synced',
                 'data'    => [
                     'request' => $userRequest->fresh(),

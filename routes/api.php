@@ -368,6 +368,8 @@ Route::group([
     // Route::post('/get-models', [LoanController::class, 'verify_dealer_id']);
     Route::post('/get-models', [ProductController::class, 'get_product_models']);
     Route::post('/approve-multi-products', [ProductController::class, 'getApproveMultiProducts']);
+    Route::post('/user-requests',[ProductController::class, 'userequeststore']);
+    Route::get('/user-requests',[ProductController::class, 'userrequestindex']);
     
     Route::post('/lender-consent', [LoanController::class, 'lender_consent_acceptance']);
     Route::post('/store-reference-details', [LoanController::class, 'store_reference_details']);
@@ -439,7 +441,7 @@ Route::group([
 
     // 18-03-2025
     Route::get('/get-fips', [AccountAggregatorController::class, 'get_fips']);
-    Route::post('/initiate-account-aggregator-request', [AccountAggregatorController::class, 'initiate_request_b2c']);
+    Route::post('/initiate-account-aggagregator-request', [AccountAggregatorController::class, 'initiate_request_b2c']);
 
     // 03-04-2025
     Route::get('/get-emi-payment-receipt/{receipt_no}', [EasebuzzPaymentController::class, 'get_emi_receipt']);
@@ -529,7 +531,7 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
     });
 
     Route::get('/get-product-list', [ProductController::class, 'index'])->name('admin.get-product-list');
-    Route::patch('/product-models/toggle-approve-multi/{key}', [ProductController::class, 'toggleApproveMulti'])->name('admin.toggle-approve-multi');
+    Route::post('/product-models/toggle-approve-multi/{key}', [ProductController::class, 'toggleApproveMulti'])->name('admin.toggle-approve-multi');
     Route::post('/store-product', [ProductController::class, 'store'])->name('admin.store-product');
     Route::get('/edit-product/{id}', [ProductController::class, 'read'])->name('admin.edit-product');
     Route::put('/update-product/{id}', [ProductController::class, 'update'])->name('admin.update-product');
@@ -755,7 +757,7 @@ Route::middleware('auth:admin')->prefix('admin')->group(function () {
     Route::get('/get-all-user-list', [AdminLoanController::class, 'get_all_user_list'])->name('admin.get-all-user-list');
     Route::post('/user-requests',[AdminLoanController::class, 'store']); // API 1 — Create
     Route::get('/user-requests',[AdminLoanController::class, 'index']); // API 2 — List
-    Route::patch('/user-requests/{id}/status',[AdminLoanController::class, 'updateStatus']); // API 3 — Approv
+    Route::post('/user-requests/{id}/status',[AdminLoanController::class, 'updateStatus']); // API 3 — Approv
     Route::get('/get-name-declaration', [AdminLoanController::class, 'get_name_declaration_document']);
     Route::post('/run-rule-engine', [AdminLoanController::class, 'rule_engine']);
     Route::post('/lender-consent', [AdminLoanController::class, 'lender_consent_acceptance']);

@@ -9446,3 +9446,4 @@ Did you mean one of these?
 #33 C:\\xampp\\htdocs\\FinayoApp-uat\\artisan(35): Illuminate\\Foundation\\Console\\Kernel->handle(Object(Symfony\\Component\\Console\\Input\\ArgvInput), Object(Symfony\\Component\\Console\\Output\\ConsoleOutput))
 #34 {main}
 "} 
+[2026-10-11 12:51:10] local.ERROR: Graviton sync FAILED for borrower 586: Graviton auth failed: HTTP 404  

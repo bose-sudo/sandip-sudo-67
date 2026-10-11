@@ -13,6 +13,7 @@ use App\Models\Manufacturers;
 use App\Models\ProductModel;
 use App\Models\OemDynamicProduct;
 use App\Models\ProductTypes;
+use App\Models\UserRequest;
 use App\Models\ProductUploadExcel;
 use Carbon\Carbon;
 use Exception;
@@ -272,7 +273,7 @@ class ProductController extends Controller
             $product->save();
 
             return response()->json([
-                'status'  => true,
+                'status'  => 'success',
                 'message' => 'approve_multi toggled successfully',
                 'data'    => [
                     'id'            => $product->id,
@@ -2137,5 +2138,121 @@ class ProductController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    public function userequeststore(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer|exists:users,id',
+            'remarks' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->send_response("failed", $validator->errors()->first(), 422);
+            // return response()->json([
+            //     'status'  => false,
+            //     'message' => 'Validation error',
+            //     'errors'  => $validator->errors(),
+            // ], 422);
+        }
+
+        // Prevent duplicate pending request
+        $existing = UserRequest::where('user_id', $request->user_id)
+                    ->where('status', 'pending')
+                    ->first();
+
+        if ($existing) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'This user already has a pending request',
+                'data'    => $existing,
+            ], 409);
+        }
+
+        try {
+            $userRequest = UserRequest::create([
+                'user_id' => $request->user_id,
+                'status'  => 'pending',
+                'remarks' => $request->remarks,
+            ]);
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'User request created successfully',
+                'data'    => $userRequest,
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status'  => false,
+                'message' => 'Something went wrong',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ API 2: List of UserRequests
+     * GET /api/user-requests
+     */
+    public function userrequestindex(Request $request)
+    {
+        $query = UserRequest::with('user:id,name,email,mobile,approve_multi')
+                    ->orderBy('id', 'desc');
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->filled('user_id')) {
+            $query->where('user_id', $request->user_id);
+        }
+
+        $userRequests = $query->paginate($request->get('per_page', 10));
+
+        // ✅ Collect user_ids on this page
+        $userIds = $userRequests->pluck('user_id')->unique()->values()->toArray();
+
+        // ✅ Fetch running loans for all users (single query)
+        // Running = NOT CLOSED, NOT REJECTED
+        $runningLoans = DB::table('loan_basic_details')
+            ->whereIn('user_id', $userIds)
+            ->whereNotIn('status', ['CLOSED', 'REJECTED'])
+            ->select('borrower_id', 'user_id')
+            ->get()
+            ->groupBy('user_id');
+
+        // ✅ Get user names for the loans
+        $loanUserNames = DB::table('users')
+            ->whereIn('id', $userIds)
+            ->pluck('name', 'id');
+
+        // ✅ Transform response
+        $userRequests->getCollection()->transform(function ($item) use ($runningLoans, $loanUserNames) {
+            $loans = $runningLoans->get($item->user_id, collect());
+
+            return [
+                // 'id'            => $item->id,
+                'user_id'       => $item->user_id,
+                // 'status'        => $item->status,
+                // 'remarks'       => $item->remarks,
+                // 'created_at'    => $item->created_at,
+                // 'updated_at'    => $item->updated_at,
+                // 'user'          => $item->user,
+                'running_loans' => $loans->map(function ($loan) use ($loanUserNames) {
+                    return [
+                        'borrower_id' => $loan->borrower_id,
+                        'name'        => $loanUserNames->get($loan->user_id, null),
+                    ];
+                })->values(),
+                'running_count' => $loans->count(),
+            ];
+        });
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'User request list',
+            'data'    => $userRequests,
+        ], 200);
     }
 }

@@ -2,12 +2,19 @@
 
 namespace App\Services\Graviton;
 
+use App\Models\BorrowerKyc;
+
 class GravitonApplicantCreditReportService extends BaseCreditReportService
 {
-    protected function getEntityType(): string
+    protected ?BorrowerKyc $borrower = null;
+
+    public function submit(BorrowerKyc $borrower, array $extraData = []): array
     {
-        return 'applicant';
+        $this->borrower = $borrower;
+        return parent::submit($borrower, $extraData);
     }
+
+    protected function getEntityType(): string { return 'applicant'; }
 
     protected function getFileColumns(): array
     {
@@ -32,4 +39,6 @@ class GravitonApplicantCreditReportService extends BaseCreditReportService
     {
         $payload['familyMemberId'] = null;
     }
+
+    protected function getBorrower(): ?BorrowerKyc { return $this->borrower; }
 }
