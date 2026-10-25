@@ -258,7 +258,7 @@ class GravitonFamilyMemberPushService
             // ✅ NEW — Category A fields
             // ═══════════════════════════════════════
             'middleName'           => $person->middle_name ?? null,
-            'motherName'           => $person->mother_name ?? null,
+            // 'motherName'           => $person->mother_name ?? null,
             'emailAddress'         => $person->email ?? null,
             'placeOfBirth'         => $person->place_of_birth ?? null,
 

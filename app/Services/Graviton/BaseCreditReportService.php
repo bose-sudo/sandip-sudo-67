@@ -9,7 +9,7 @@ use App\Models\GravitonApplicationLog;
 use App\Models\GravitonReferenceData;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB; // ✅ DB Facade
+use Illuminate\Support\Facades\DB; // ✅ DB Facade যুক্ত করা হয়েছে
 
 abstract class BaseCreditReportService
 {
@@ -88,10 +88,10 @@ abstract class BaseCreditReportService
             // 1️⃣ Documents Upload (CIBIL, KYC, Profile Image)
             $this->uploadDocuments($resourceId, $documents, $borrower->id);
 
-            // 2️⃣ Vehicle (only once per loan, non-fatal)
+            // 2️⃣ Vehicle তৈরি (only once per loan, non-fatal)
             $this->uploadVehicleData($borrower->id);
 
-            // 3️⃣ Income Proof 
+            // 3️⃣ Income Proof ডকুমেন্ট আপলোড
             $this->uploadIncomeData($documents, $borrower->id);
 
             return [
@@ -159,20 +159,21 @@ abstract class BaseCreditReportService
         $applicantClientId   = $borrower->graviton_client_id;
         $guarantorFamilyId   = $this->getFamilyMemberId('guarantor_push');
         $coapplicantFamilyId = $this->getFamilyMemberId('coapplicant_push');
+        $currentEntityType   = $this->getEntityType();
 
         $uploadService = app(GravitonDocumentUploadService::class);
 
         // ═══════════════════════════════════════════════════════
-        // 1️⃣ CIBIL REPORT PDF UPLOAD
+        // 1️⃣ CIBIL REPORT PDF UPLOAD (Applicant Only)
         // ═══════════════════════════════════════════════════════
-        $this->uploadCibilReport($resourceId, $borrower, $borrowerId);
+        if ($currentEntityType === 'applicant') {
+            $this->uploadCibilReport($resourceId, $borrower, $borrowerId);
+        }
 
         // ═══════════════════════════════════════════════════════
         // 2️⃣ PROFILE IMAGE UPLOAD
         // ═══════════════════════════════════════════════════════
-
-        // Applicant Profile Image → /clients/{clientId}/images
-        if (!empty($documents->borrower_avtar) && $applicantClientId) {
+        if (!empty($documents->borrower_avtar) && $applicantClientId && $currentEntityType === 'applicant') {
             $fullUrl = $this->resolveFullPath($documents->borrower_avtar);
             if ($fullUrl) {
                 try {
@@ -184,8 +185,7 @@ abstract class BaseCreditReportService
             }
         }
 
-        // Guarantor Profile Image → /familymember/{familyMemberId}/images
-        if (!empty($documents->guarantor_avtar) && $guarantorFamilyId) {
+        if (!empty($documents->guarantor_avtar) && $guarantorFamilyId && $currentEntityType === 'guarantor') {
             $fullUrl = $this->resolveFullPath($documents->guarantor_avtar);
             if ($fullUrl) {
                 try {
@@ -197,8 +197,7 @@ abstract class BaseCreditReportService
             }
         }
 
-        // Co-applicant Profile Image → /familymember/{familyMemberId}/images
-        if (!empty($documents->coapplicant_avtar) && $coapplicantFamilyId) {
+        if (!empty($documents->coapplicant_avtar) && $coapplicantFamilyId && $currentEntityType === 'coapplicant') {
             $fullUrl = $this->resolveFullPath($documents->coapplicant_avtar);
             if ($fullUrl) {
                 try {
@@ -214,34 +213,40 @@ abstract class BaseCreditReportService
         // 3️⃣ KYC UPLOAD — PAN, AADHAAR, ELECTRICITY BILL
         // ═══════════════════════════════════════════════════════
 
-        // Borrower KYC
-        $this->uploadKycForEntity(
-            $uploadService,
-            $documents,
-            $applicantClientId,
-            'borrower',
-            $borrowerId
-        );
+        // Applicant KYC (শুধুমাত্র Applicant রান হলেই এটি এক্সিকিউট হবে)
+        if ($currentEntityType === 'applicant') {
+            $this->uploadKycForEntity(
+                $uploadService,
+                $documents,
+                $applicantClientId,
+                'borrower',
+                $borrowerId
+            );
+        }
 
         // Co-applicant KYC
-        $coapplicantClientId = $this->getFamilyMemberClientId('coapplicant_push');
-        $this->uploadKycForEntity(
-            $uploadService,
-            $documents,
-            $coapplicantClientId,
-            'coapplicant',
-            $borrowerId
-        );
+        if ($currentEntityType === 'coapplicant') {
+            $coapplicantClientId = $this->getFamilyMemberClientId('coapplicant_push');
+            $this->uploadKycForEntity(
+                $uploadService,
+                $documents,
+                $coapplicantClientId,
+                'coapplicant',
+                $borrowerId
+            );
+        }
 
         // Guarantor KYC
-        $guarantorClientId = $this->getFamilyMemberClientId('guarantor_push');
-        $this->uploadKycForEntity(
-            $uploadService,
-            $documents,
-            $guarantorClientId,
-            'guarantor',
-            $borrowerId
-        );
+        if ($currentEntityType === 'guarantor') {
+            $guarantorClientId = $this->getFamilyMemberClientId('guarantor_push');
+            $this->uploadKycForEntity(
+                $uploadService,
+                $documents,
+                $guarantorClientId,
+                'guarantor',
+                $borrowerId
+            );
+        }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -577,14 +582,26 @@ abstract class BaseCreditReportService
         if (!$borrower) return;
 
         $loanId = (int) $borrower->graviton_loan_id;
-        $dbBorrowerId = $borrower->borrower_id;
+        
+        // ✅ আপনার কথামতো borrower_kycs টেবিলের borrower_id থেকে নেওয়া হচ্ছে
+        $dbBorrowerId = $borrower->borrower_id; 
+
+        Log::info("Income Process Started", ['borrower_kyc_id' => $borrower->id, 'db_borrower_id' => $dbBorrowerId]);
 
         // 1. Applicant Income Proof
         if (!empty($documents->borrower_income_proof_doc)) {
+            Log::info("Applicant income file found in documents table", ['file' => $documents->borrower_income_proof_doc]);
+            
             $occupation = DB::table('borrower_occupations')->where('borrower_id', $dbBorrowerId)->first();
+            
             if ($occupation) {
+                Log::info("Applicant occupation found", ['occupation_type' => $occupation->occupation_type]);
                 $this->processIncomeAndDocument($loanId, $documents->borrower_income_proof_doc, 'borrower', $occupation, $borrowerId);
+            } else {
+                Log::warning("Applicant occupation NOT FOUND in borrower_occupations where borrower_id = {$dbBorrowerId}");
             }
+        } else {
+            Log::warning("Applicant income doc is empty in Documents table (borrower_income_proof_doc)");
         }
 
         // 2. Co-Applicant Income Proof
@@ -592,6 +609,8 @@ abstract class BaseCreditReportService
             $occupation = DB::table('coapplicant_occupations')->where('borrower_id', $dbBorrowerId)->first();
             if ($occupation) {
                 $this->processIncomeAndDocument($loanId, $documents->coapplicant_income_proof_doc, 'coapplicant', $occupation, $borrowerId);
+            } else {
+                Log::warning("Co-applicant occupation NOT FOUND for borrower_id = {$dbBorrowerId}");
             }
         }
 
@@ -600,6 +619,8 @@ abstract class BaseCreditReportService
             $occupation = DB::table('guarantor_occupations')->where('borrower_id', $dbBorrowerId)->first();
             if ($occupation) {
                 $this->processIncomeAndDocument($loanId, $documents->guarantor_income_proof_doc, 'guarantor', $occupation, $borrowerId);
+            } else {
+                Log::warning("Guarantor occupation NOT FOUND for borrower_id = {$dbBorrowerId}");
             }
         }
     }
@@ -616,7 +637,7 @@ abstract class BaseCreditReportService
         ]);
 
         try {
-            // ✅ Toto  Enum IDs
+            // ✅ Toto ড্রাইভারের উপযোগী ফিক্সড Enum IDs এবং ডাইনামিক DB ডেটা
             $payload = [
                 "loanId" => $loanId,
                 "incomes" => [
@@ -627,13 +648,13 @@ abstract class BaseCreditReportService
                         "employmentTypeId"       => 249, // Fixed: SELF EMPLOYED
                         "paymentTypeEnumId"      => 0,   // Fixed: Cash Salaried
                         
-                        // dynamic from database
+                        // ডাইনামিক ডেটা ডাটাবেস থেকে
                         "specifyJobRole"         => $occupation->occupation_type ?? "Self Employed",
                         "workProfile"            => $occupation->occupation_type ?? "Self Employed",
                         "organisationName"       => $occupation->current_occupation ?? "Self",
                         "earningPm"              => (float) ($occupation->monthly_earning ?? 0.00),
                         
-                        // other fields
+                        // অন্যান্য ফিক্সড
                         "validateIncomeInfo"     => false,
                         "locale"                 => "en",
                         "dateFormat"             => "dd-MM-yyyy"
@@ -651,7 +672,7 @@ abstract class BaseCreditReportService
             ]);
 
             if (!$response->successful()) {
-                throw new \Exception('HTTP ' . $response->status() . ': ' . $response->body());
+                throw new \Exception('HTTP ' . $response->status() . ': ' . mb_convert_encoding($response->body(), 'UTF-8', 'UTF-8'));
             }
 
             $incomeId = $data['changes']['incomeId'][0] ?? null;
@@ -662,19 +683,30 @@ abstract class BaseCreditReportService
             $fullUrl = $this->resolveFullPath($filePath);
             if (!$fullUrl) throw new \Exception('Invalid file path');
 
-            $fileContent = @file_get_contents($fullUrl);
-            if ($fileContent === false) throw new \Exception('Failed to download file from URL');
+            // ✅ ফাইলটিকে স্ট্রিং হিসেবে না নিয়ে স্ট্রিম (Stream) হিসেবে ডাউনলোড করা হচ্ছে
+            $fileResponse = $this->auth->client()->get($fullUrl, ['stream' => true]);
+            
+            if (!$fileResponse->successful()) {
+                throw new \Exception('Failed to download file from URL: ' . $fullUrl);
+            }
+            
+            // রিসোর্স (Stream) বের করা হচ্ছে
+            $fileStream = $fileResponse->getBody()->detach();
+            if (!$fileStream) {
+                throw new \Exception('Failed to open file stream');
+            }
             
             $filename = basename(parse_url($fullUrl, PHP_URL_PATH) ?: 'income_proof.jpg');
 
+            // ✅ মাল্টিপার্টে 'contents' হিসেবে স্ট্রিম পাস করা হচ্ছে
             $multipart = [
                 [
                     'name'     => 'file',
-                    'contents' => $fileContent,
+                    'contents' => $fileStream,
                     'filename' => $filename
                 ],
                 ['name' => 'name', 'contents' => "Income Proof ({$type})"],
-                ['name' => 'tag', 'contents' => '1'], // Postman Test অনুযায়ী tag=1
+                ['name' => 'tag', 'contents' => '1'],
             ];
 
             $docRes = $this->auth->client()->post("/incomeidentifier/{$incomeId}/documents", [
@@ -682,7 +714,9 @@ abstract class BaseCreditReportService
             ]);
 
             if (!$docRes->successful()) {
-                throw new \Exception('Doc upload failed: ' . $docRes->body());
+                // ✅ এরর বডি থেকে বাইনারি বা ইনভ্যালিড ক্যারেক্টার রিমুভ করা হচ্ছে
+                $safeBody = mb_convert_encoding($docRes->body(), 'UTF-8', 'UTF-8');
+                throw new \Exception('Doc upload failed: ' . $docRes->status() . ' - ' . $safeBody);
             }
 
             $log->update([
@@ -697,12 +731,16 @@ abstract class BaseCreditReportService
             ]);
 
         } catch (\Throwable $e) {
+            // ✅ এরর মেসেজ স্যানিটাইজ করা হচ্ছে যাতে ডাটাবেসে সেভ করার সময় json_encode ক্র্যাশ না করে
+            $safeErrorMessage = mb_convert_encoding($e->getMessage(), 'UTF-8', 'UTF-8');
+            
             $log->update([
                 'status'        => 'failed',
-                'error_message' => $e->getMessage(),
+                'error_message' => $safeErrorMessage,
                 'completed_at'  => now(),
             ]);
-            Log::warning("Income proof upload failed ({$type})", ['error' => $e->getMessage()]);
+            
+            Log::warning("Income proof upload failed ({$type})", ['error' => $safeErrorMessage]);
         }
     }
 }

@@ -410,7 +410,7 @@ class GravitonLoanApplicationService
                 // ✅ Category A fields (source ache)
                 // ═══════════════════════════════════════
                 'middleName'         => $borrower->middle_name ?? null,
-                'motherName'         => $borrower->mother_name ?? null,
+                // 'motherName'         => $borrower->mother_name ?? null,
                 'profession'         => $occupation->profession ?? $occupation->current_occupation ?? null,
                 'caste'              => $borrower->caste ?? null,
                 'religion'           => $borrower->religion ?? null,
